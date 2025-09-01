@@ -483,27 +483,160 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* Aylık Kazanç Grafiği */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📈 Aylık Kazanç Trendi</Text>
-          <View style={styles.chartContainer}>
-            <View style={styles.chart}>
-              {user.monthlyEarnings.map((earning, index) => {
-                const maxEarning = Math.max(...user.monthlyEarnings);
-                const height = (earning / maxEarning) * 100;
-                return (
-                  <View key={index} style={styles.chartBar}>
-                    <View style={[styles.bar, { height: `${height}%` }]} />
-                    <Text style={styles.barLabel}>{formatPrice(earning)}</Text>
-                    <Text style={styles.monthLabel}>
-                      {['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz'][index]}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        </View>
+                 {/* Aylık Kazanç Grafiği */}
+         <View style={styles.section}>
+           <Text style={styles.sectionTitle}>📈 Aylık Kazanç Trendi</Text>
+           <View style={styles.chartContainer}>
+             <View style={styles.chart}>
+               {user.monthlyEarnings.map((earning, index) => {
+                 const maxEarning = Math.max(...user.monthlyEarnings);
+                 const height = (earning / maxEarning) * 100;
+                 return (
+                   <View key={index} style={styles.chartBar}>
+                     <View style={[styles.bar, { height: `${height}%` }]} />
+                     <Text style={styles.barLabel}>{formatPrice(earning)}</Text>
+                     <Text style={styles.monthLabel}>
+                       {['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz'][index]}
+                     </Text>
+                   </View>
+                 );
+               })}
+             </View>
+           </View>
+         </View>
+
+         {/* Detaylı İstatistik Kartları */}
+         <View style={styles.section}>
+           <Text style={styles.sectionTitle}>📊 Detaylı İstatistikler</Text>
+           <View style={styles.detailedStatsContainer}>
+             {/* Performans Kartı */}
+             <View style={styles.detailedStatCard}>
+               <View style={styles.detailedStatHeader}>
+                 <Text style={styles.detailedStatIcon}>🎯</Text>
+                 <Text style={styles.detailedStatTitle}>Performans</Text>
+               </View>
+               <View style={styles.detailedStatContent}>
+                 <View style={styles.detailedStatRow}>
+                   <Text style={styles.detailedStatLabel}>Başarı Oranı</Text>
+                   <Text style={styles.detailedStatValue}>%95</Text>
+                 </View>
+                 <View style={styles.detailedStatRow}>
+                   <Text style={styles.detailedStatLabel}>Ortalama Süre</Text>
+                   <Text style={styles.detailedStatValue}>2.3 saat</Text>
+                 </View>
+                 <View style={styles.detailedStatRow}>
+                   <Text style={styles.detailedStatLabel}>Müşteri Memnuniyeti</Text>
+                   <Text style={styles.detailedStatValue}>4.8/5</Text>
+                 </View>
+               </View>
+             </View>
+
+             {/* Kazanç Analizi Kartı */}
+             <View style={styles.detailedStatCard}>
+               <View style={styles.detailedStatHeader}>
+                 <Text style={styles.detailedStatIcon}>💰</Text>
+                 <Text style={styles.detailedStatTitle}>Kazanç Analizi</Text>
+               </View>
+               <View style={styles.detailedStatContent}>
+                 <View style={styles.detailedStatRow}>
+                   <Text style={styles.detailedStatLabel}>Saatlik Ortalama</Text>
+                   <Text style={styles.detailedStatValue}>₺125</Text>
+                 </View>
+                 <View style={styles.detailedStatRow}>
+                   <Text style={styles.detailedStatLabel}>En Yüksek Günlük</Text>
+                   <Text style={styles.detailedStatValue}>₺850</Text>
+                 </View>
+                 <View style={styles.detailedStatRow}>
+                   <Text style={styles.detailedStatLabel}>Aylık Ortalama</Text>
+                   <Text style={styles.detailedStatValue}>₺2,500</Text>
+                 </View>
+               </View>
+             </View>
+
+             {/* İş Analizi Kartı */}
+             <View style={styles.detailedStatCard}>
+               <View style={styles.detailedStatHeader}>
+                 <Text style={styles.detailedStatIcon}>📋</Text>
+                 <Text style={styles.detailedStatTitle}>İş Analizi</Text>
+               </View>
+               <View style={styles.detailedStatContent}>
+                 <View style={styles.detailedStatRow}>
+                   <Text style={styles.detailedStatLabel}>Toplam İş</Text>
+                   <Text style={styles.detailedStatValue}>12</Text>
+                 </View>
+                 <View style={styles.detailedStatRow}>
+                   <Text style={styles.detailedStatLabel}>Aktif İş</Text>
+                   <Text style={styles.detailedStatValue}>3</Text>
+                 </View>
+                 <View style={styles.detailedStatRow}>
+                   <Text style={styles.detailedStatLabel}>Tamamlanan</Text>
+                   <Text style={styles.detailedStatValue}>9</Text>
+                 </View>
+               </View>
+             </View>
+           </View>
+         </View>
+
+         {/* Haftalık Performans Grafiği */}
+         <View style={styles.section}>
+           <Text style={styles.sectionTitle}>📅 Haftalık Performans</Text>
+           <View style={styles.weeklyChartContainer}>
+             <View style={styles.weeklyChart}>
+               {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map((day, index) => {
+                 const performance = [85, 92, 78, 95, 88, 90, 87][index];
+                 const height = (performance / 100) * 80;
+                 return (
+                   <View key={index} style={styles.weeklyChartBar}>
+                     <View style={[styles.weeklyBar, { height: `${height}%` }]} />
+                     <Text style={styles.weeklyBarLabel}>{performance}%</Text>
+                     <Text style={styles.weeklyDayLabel}>{day}</Text>
+                   </View>
+                 );
+               })}
+             </View>
+           </View>
+         </View>
+
+         {/* Kategori Performans Detayları */}
+         <View style={styles.section}>
+           <Text style={styles.sectionTitle}>🏆 Kategori Performans Detayları</Text>
+           <View style={styles.categoryPerformanceContainer}>
+             {user.categoryStats.map((stat, index) => (
+               <View key={index} style={styles.categoryPerformanceCard}>
+                 <View style={styles.categoryPerformanceHeader}>
+                   <Text style={styles.categoryPerformanceName}>{stat.category}</Text>
+                   <Text style={styles.categoryPerformanceScore}>
+                     {Math.round((stat.count / user.completedJobs) * 100)}%
+                   </Text>
+                 </View>
+                 <View style={styles.categoryPerformanceBar}>
+                   <View 
+                     style={[
+                       styles.categoryPerformanceFill, 
+                       { width: `${(stat.count / user.completedJobs) * 100}%` }
+                     ]} 
+                   />
+                 </View>
+                 <View style={styles.categoryPerformanceDetails}>
+                   <View style={styles.categoryPerformanceDetail}>
+                     <Text style={styles.categoryPerformanceDetailLabel}>Tamamlanan İş</Text>
+                     <Text style={styles.categoryPerformanceDetailValue}>{stat.count}</Text>
+                   </View>
+                   <View style={styles.categoryPerformanceDetail}>
+                     <Text style={styles.categoryPerformanceDetailLabel}>Toplam Kazanç</Text>
+                     <Text style={styles.categoryPerformanceDetailValue}>{formatPrice(stat.earnings)}</Text>
+                   </View>
+                   <View style={styles.categoryPerformanceDetail}>
+                     <Text style={styles.categoryPerformanceDetailLabel}>Ortalama</Text>
+                     <Text style={styles.categoryPerformanceDetailValue}>
+                       {formatPrice(stat.earnings / stat.count)}
+                     </Text>
+                   </View>
+                 </View>
+               </View>
+             ))}
+           </View>
+         </View>
 
         {/* Kategori Bazlı İstatistikler */}
         <View style={styles.section}>
@@ -2159,6 +2292,169 @@ const styles = StyleSheet.create({
      fontSize: 12,
      color: '#6B7280',
      fontWeight: '600',
+   },
+   // Detaylı istatistik stilleri
+   detailedStatsContainer: {
+     gap: 16,
+   },
+   detailedStatCard: {
+     backgroundColor: '#FFFFFF',
+     borderRadius: 16,
+     padding: 20,
+     shadowColor: '#000',
+     shadowOffset: {
+       width: 0,
+       height: 2,
+     },
+     shadowOpacity: 0.1,
+     shadowRadius: 8,
+     elevation: 4,
+     borderWidth: 1,
+     borderColor: '#F0F0F0',
+   },
+   detailedStatHeader: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     marginBottom: 16,
+     gap: 12,
+   },
+   detailedStatIcon: {
+     fontSize: 24,
+   },
+   detailedStatTitle: {
+     fontSize: 18,
+     fontWeight: 'bold',
+     color: '#1F2937',
+   },
+   detailedStatContent: {
+     gap: 12,
+   },
+   detailedStatRow: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     paddingVertical: 8,
+     borderBottomWidth: 1,
+     borderBottomColor: '#F3F4F6',
+   },
+   detailedStatLabel: {
+     fontSize: 14,
+     color: '#6B7280',
+     fontWeight: '500',
+   },
+   detailedStatValue: {
+     fontSize: 16,
+     fontWeight: 'bold',
+     color: '#2563EB',
+   },
+   // Haftalık performans grafik stilleri
+   weeklyChartContainer: {
+     backgroundColor: '#FFFFFF',
+     borderRadius: 16,
+     padding: 20,
+     shadowColor: '#000',
+     shadowOffset: {
+       width: 0,
+       height: 2,
+     },
+     shadowOpacity: 0.1,
+     shadowRadius: 8,
+     elevation: 4,
+   },
+   weeklyChart: {
+     flexDirection: 'row',
+     alignItems: 'flex-end',
+     justifyContent: 'space-between',
+     height: 120,
+     paddingHorizontal: 8,
+   },
+   weeklyChartBar: {
+     flex: 1,
+     alignItems: 'center',
+     marginHorizontal: 4,
+   },
+   weeklyBar: {
+     width: 16,
+     backgroundColor: '#10B981',
+     borderRadius: 8,
+     marginBottom: 8,
+     minHeight: 4,
+   },
+   weeklyBarLabel: {
+     fontSize: 10,
+     color: '#10B981',
+     fontWeight: '600',
+     marginBottom: 4,
+   },
+   weeklyDayLabel: {
+     fontSize: 10,
+     color: '#6B7280',
+     fontWeight: '500',
+   },
+   // Kategori performans detay stilleri
+   categoryPerformanceContainer: {
+     gap: 16,
+   },
+   categoryPerformanceCard: {
+     backgroundColor: '#FFFFFF',
+     borderRadius: 16,
+     padding: 20,
+     shadowColor: '#000',
+     shadowOffset: {
+       width: 0,
+       height: 2,
+     },
+     shadowOpacity: 0.1,
+     shadowRadius: 8,
+     elevation: 4,
+     borderWidth: 1,
+     borderColor: '#F0F0F0',
+   },
+   categoryPerformanceHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     marginBottom: 12,
+   },
+   categoryPerformanceName: {
+     fontSize: 16,
+     fontWeight: '600',
+     color: '#1F2937',
+   },
+   categoryPerformanceScore: {
+     fontSize: 18,
+     fontWeight: 'bold',
+     color: '#10B981',
+   },
+   categoryPerformanceBar: {
+     height: 8,
+     backgroundColor: '#F3F4F6',
+     borderRadius: 4,
+     marginBottom: 16,
+     overflow: 'hidden',
+   },
+   categoryPerformanceFill: {
+     height: '100%',
+     backgroundColor: '#10B981',
+     borderRadius: 4,
+   },
+   categoryPerformanceDetails: {
+     gap: 8,
+   },
+   categoryPerformanceDetail: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     paddingVertical: 6,
+   },
+   categoryPerformanceDetailLabel: {
+     fontSize: 14,
+     color: '#6B7280',
+   },
+   categoryPerformanceDetailValue: {
+     fontSize: 14,
+     fontWeight: '600',
+     color: '#1F2937',
    },
  });
 
