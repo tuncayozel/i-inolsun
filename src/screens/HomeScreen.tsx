@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,35 +10,114 @@ import {
   FlatList,
   Dimensions,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { mockCategories, mockJobs, getActiveJobs, formatPrice, formatDate, Job, mockNotifications } from '../data/mockData';
+import { Card, CardContent, CardFooter } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { colors } from '../theme/colors';
+import { typography, spacing, borderRadius, shadows } from '../theme/typography';
+import { auth, db } from '../config/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }: any) {
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [jobs, setJobs] = useState<Job[]>(getActiveJobs());
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Auth state'i dinle
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (user) {
+        console.log('👤 Kullanıcı giriş yapmış, işler yükleniyor...');
+        fetchJobs();
+      } else {
+        console.log('❌ Kullanıcı giriş yapmamış');
+        setJobs([]);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  const fetchJobs = async () => {
+    try {
+      console.log('🔍 İşler Firebase\'den alınıyor...');
+      setLoading(true);
+
+      // Aktif işleri real-time dinle
+      const q = query(
+        collection(db, 'jobs'),
+        where('status', '==', 'active'),
+        orderBy('createdAt', 'desc')
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const firebaseJobs: Job[] = [];
+        
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const job: Job = {
+            id: doc.id,
+            title: data.title || '',
+            description: data.description || '',
+            category: data.category || '',
+            location: data.location || '',
+            price: data.price || 0,
+            date: data.date || '',
+            time: data.time || '',
+            status: data.status || 'active',
+            employerName: data.employerName || '',
+            employerId: data.ownerId || '',
+            createdAt: data.createdAt?.toDate() || new Date()
+          };
+          firebaseJobs.push(job);
+        });
+
+        console.log('✅ İşler alındı:', firebaseJobs.length, 'iş');
+        setJobs(firebaseJobs);
+        setLoading(false);
+      }, (error) => {
+        console.error('❌ İşler alma hatası:', error);
+        // Hata durumunda mock data kullan
+        setJobs(getActiveJobs());
+        setLoading(false);
+      });
+
+      return unsubscribe;
+    } catch (error: any) {
+      console.error('❌ İşler alma hatası:', error);
+      // Hata durumunda mock data kullan
+      setJobs(getActiveJobs());
+      setLoading(false);
+    }
+  };
 
   const handleCategorySelect = (categoryName: string) => {
     if (selectedCategory === categoryName) {
       setSelectedCategory('');
-      setJobs(getActiveJobs());
+      // Tüm işleri göster
+      fetchJobs();
     } else {
       setSelectedCategory(categoryName);
-      setJobs(getActiveJobs().filter(job => job.category === categoryName));
+      // Kategoriye göre filtrele
+      const filteredJobs = jobs.filter(job => job.category === categoryName);
+      setJobs(filteredJobs);
     }
   };
 
-
-
   const onRefresh = () => {
     setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setJobs(getActiveJobs());
+    fetchJobs().then(() => {
       setRefreshing(false);
-    }, 1000);
+    });
   };
 
   const renderCategory = ({ item }: { item: any }) => (
@@ -174,7 +253,12 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.jobCount}>{jobs.length} iş</Text>
           </View>
           
-          {jobs.length === 0 ? (
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#2563EB" />
+              <Text style={styles.loadingText}>İşler yükleniyor...</Text>
+            </View>
+          ) : jobs.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>Bu kategoride iş bulunamadı</Text>
               <Text style={styles.emptyStateSubtext}>Farklı bir kategori deneyin</Text>
@@ -477,6 +561,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#6B7280',
   },
 });
 

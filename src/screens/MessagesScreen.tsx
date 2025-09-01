@@ -1,92 +1,251 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   SafeAreaView,
-  ScrollView,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { mockConversations, Conversation } from '../data/mockData';
+import { auth, db } from '../config/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { MessageService, ChatRoom } from '../services/messageService';
 
 export default function MessagesScreen({ navigation }: any) {
-  const handleConversationPress = (conversation: Conversation) => {
-    navigation.navigate('Chat', { conversationId: conversation.id });
+  const [conversations, setConversations] = useState<ChatRoom[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Auth state'i dinle
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (user) {
+        console.log('👤 Kullanıcı giriş yapmış, konuşmalar yükleniyor...');
+        fetchConversations(user.uid);
+      } else {
+        console.log('❌ Kullanıcı giriş yapmamış');
+        setConversations([]);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  const fetchConversations = async (userId: string) => {
+    try {
+      console.log('🔍 Konuşmalar Firebase\'den alınıyor...');
+      setLoading(true);
+
+      // Chat rooms'ları real-time dinle
+      const q = query(
+        collection(db, 'chatRooms'),
+        where('participants', 'array-contains', userId),
+        orderBy('lastMessageTime', 'desc')
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const chatRooms: ChatRoom[] = [];
+        
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const chatRoom: ChatRoom = {
+            id: doc.id,
+            participants: data.participants || [],
+            participantNames: data.participantNames || [],
+            lastMessage: data.lastMessage || '',
+            lastMessageTime: data.lastMessageTime || Timestamp.now(),
+            unreadCount: data.unreadCount || 0,
+            jobId: data.jobId || '',
+            jobTitle: data.jobTitle || ''
+          };
+          chatRooms.push(chatRoom);
+        });
+
+        console.log('✅ Konuşmalar alındı:', chatRooms.length, 'konuşma');
+        setConversations(chatRooms);
+        setLoading(false);
+      }, (error) => {
+        console.error('❌ Konuşmalar alma hatası:', error);
+        setLoading(false);
+      });
+
+      return unsubscribe;
+    } catch (error: any) {
+      console.error('❌ Konuşmalar alma hatası:', error);
+      setLoading(false);
+    }
   };
 
-  const formatTime = (date: Date) => {
+  const onRefresh = () => {
+    if (currentUser) {
+      setRefreshing(true);
+      fetchConversations(currentUser.uid).then(() => {
+        setRefreshing(false);
+      });
+    }
+  };
+
+  const formatTime = (timestamp: any) => {
+    if (!timestamp) return 'Az önce';
+    
+    let date: Date;
+    
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
+      date = timestamp.toDate();
+    } else {
+      date = new Date(timestamp);
+    }
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     
-    if (hours < 1) {
-      return 'şimdi';
-    } else if (hours < 24) {
-      return `${hours}s önce`;
-    } else {
-      return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
-    }
+    if (hours < 1) return 'Az önce';
+    if (hours < 24) return `${hours} saat önce`;
+    
+    const diffInDays = Math.floor(hours / 24);
+    if (diffInDays < 7) return `${diffInDays} gün önce`;
+    
+    return date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
   };
 
-  const renderConversation = ({ item }: { item: Conversation }) => (
+  const getParticipantName = (chatRoom: ChatRoom) => {
+    if (!currentUser) return 'Kullanıcı';
+    
+    const otherParticipant = chatRoom.participants.find(id => id !== currentUser.uid);
+    if (otherParticipant) {
+      // Email'den kullanıcı adını çıkar
+      return otherParticipant.split('@')[0];
+    }
+    return 'Kullanıcı';
+  };
+
+  const renderConversation = ({ item }: { item: ChatRoom }) => (
     <TouchableOpacity
       style={styles.conversationCard}
-      onPress={() => handleConversationPress(item)}
+      onPress={() => {
+        console.log('💬 Konuşma açılıyor:', item.id);
+        navigation.navigate('Chat', { 
+          conversationId: item.id,
+          otherUserId: item.participants.find(id => id !== currentUser?.uid) || '',
+          participantName: getParticipantName(item),
+          jobId: item.jobId,
+          jobTitle: item.jobTitle
+        });
+      }}
     >
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.participantName[0]}</Text>
+        <Text style={styles.avatarText}>
+          {getParticipantName(item).charAt(0).toUpperCase()}
+        </Text>
       </View>
       
       <View style={styles.conversationContent}>
         <View style={styles.conversationHeader}>
-          <Text style={styles.participantName}>{item.participantName}</Text>
-          <Text style={styles.timestamp}>{formatTime(item.lastMessageTime)}</Text>
+          <Text style={styles.participantName} numberOfLines={1}>
+            {getParticipantName(item)}
+          </Text>
+          <Text style={styles.timestamp}>
+            {formatTime(item.lastMessageTime)}
+          </Text>
         </View>
         
-        <Text style={styles.jobTitle}>{item.jobTitle}</Text>
-        <Text style={styles.lastMessage} numberOfLines={1}>
-          {item.lastMessage}
+        {item.jobTitle && (
+          <Text style={styles.jobTitle} numberOfLines={1}>
+            {item.jobTitle}
+          </Text>
+        )}
+        
+        <Text style={styles.lastMessage} numberOfLines={2}>
+          {item.lastMessage || 'Henüz mesaj yok'}
         </Text>
       </View>
       
       {item.unreadCount > 0 && (
         <View style={styles.unreadBadge}>
-          <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+          <Text style={styles.unreadCount}>
+            {item.unreadCount > 99 ? '99+' : item.unreadCount}
+          </Text>
         </View>
       )}
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>💬 Mesajlar</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Konuşmalar yükleniyor...</Text>
+          <Text style={styles.loadingSubtext}>Firebase'den veriler alınıyor</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.header}>
-        <Text style={styles.title}>Mesajlar</Text>
-        <Text style={styles.subtitle}>{mockConversations.length} konuşma</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>💬 Mesajlar</Text>
+        <Text style={styles.subtitle}>
+          {conversations.length} konuşma
+        </Text>
       </View>
 
-      {mockConversations.length === 0 ? (
+      {/* Conversations List */}
+      {conversations.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateIcon}>💬</Text>
-          <Text style={styles.emptyStateText}>Henüz mesajınız yok</Text>
-          <Text style={styles.emptyStateSubtext}>
+          <Text style={styles.emptyIcon}>💬</Text>
+          <Text style={styles.emptyTitle}>Henüz mesajınız yok</Text>
+          <Text style={styles.emptySubtext}>
             İş başvuruları yapın veya ilan verin, mesajlaşmaya başlayın
           </Text>
-        </View>
-              ) : (
-          <View style={styles.conversationsList}>
-            {mockConversations.map((conversation) => (
-              <View key={conversation.id}>
-                {renderConversation({ item: conversation })}
-              </View>
-            ))}
+          
+          <View style={styles.emptyActions}>
+            <TouchableOpacity
+              style={styles.emptyActionButton}
+              onPress={() => navigation.navigate('Home')}
+            >
+              <Text style={styles.emptyActionButtonText}>İş Ara</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.emptyActionButton}
+              onPress={() => navigation.navigate('PostJob')}
+            >
+              <Text style={styles.emptyActionButtonText}>İlan Aç</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
+        </View>
+      ) : (
+        <FlatList
+          data={conversations}
+          renderItem={renderConversation}
+          keyExtractor={(item) => `chat-${item.id}`}
+          contentContainerStyle={styles.conversationsList}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#2563EB']}
+              tintColor="#2563EB"
+            />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -201,22 +360,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  emptyStateIcon: {
+  emptyIcon: {
     fontSize: 64,
     marginBottom: 16,
   },
-  emptyStateText: {
+  emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 8,
     textAlign: 'center',
   },
-  emptyStateSubtext: {
+  emptySubtext: {
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  emptyActions: {
+    flexDirection: 'row',
+    marginTop: 20,
+    width: '100%',
+    justifyContent: 'space-around',
+  },
+  emptyActionButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  emptyActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#6B7280',
+    marginTop: 10,
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 5,
   },
 });
 

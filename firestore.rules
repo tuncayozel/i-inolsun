@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Tüm koleksiyonlar için tam erişim (test için)
+    match /{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Users koleksiyonu
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+    
+    // Jobs koleksiyonu
+    match /jobs/{jobId} {
+      allow read, write: if true;
+    }
+    
+    // Job applications koleksiyonu
+    match /jobApplications/{applicationId} {
+      allow read, write: if true;
+    }
+    
+    // Chat rooms koleksiyonu
+    match /chatRooms/{chatRoomId} {
+      allow read, write: if true;
+    }
+    
+    // Messages koleksiyonu
+    match /messages/{messageId} {
+      allow read, write: if true;
+    }
+    
+    // Notifications koleksiyonu
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
+    
+    // Payments koleksiyonu
+    match /payments/{paymentId} {
+      allow read, write: if true;
+    }
+  }
+}

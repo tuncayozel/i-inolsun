@@ -11,6 +11,7 @@ import {
   Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthService } from '../services/authService';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -26,29 +27,40 @@ export default function LoginScreen({ navigation }: any) {
     setLoading(true);
     
     try {
-      // Mock login - gerçek projede Firebase Auth kullanılacak
-      // Şimdilik basit bir kullanıcı verisi oluşturuyoruz
-      const userData = {
-        id: '1',
-        name: 'Test Kullanıcı',
-        email: email,
-        phone: '0532 123 45 67',
-        avatar: '👤'
-      };
+      // Firebase Auth ile giriş yap
+      const userCredential = await AuthService.login(email, password);
+      const user = userCredential.user;
       
-      const userToken = 'mock_token_' + Date.now();
-      
-      // Kullanıcı verilerini AsyncStorage'a kaydet
-      await AsyncStorage.setItem('userToken', userToken);
-      await AsyncStorage.setItem('userData', JSON.stringify(userData));
-      
+      if (user) {
+        // Kullanıcı verilerini Firestore'dan al
+        const userData = await AuthService.getUserData(user.uid);
+        
+        if (userData) {
+          // Kullanıcı verilerini AsyncStorage'a kaydet
+          await AsyncStorage.setItem('userToken', user.uid);
+          await AsyncStorage.setItem('userData', JSON.stringify(userData));
+          
+          setLoading(false);
+          Alert.alert('Başarılı', 'Giriş yapıldı!', [
+            { text: 'Tamam', onPress: () => navigation.replace('Main') }
+          ]);
+        } else {
+          throw new Error('Kullanıcı verisi bulunamadı');
+        }
+      }
+    } catch (error: any) {
       setLoading(false);
-      Alert.alert('Başarılı', 'Giriş yapıldı!', [
-        { text: 'Tamam', onPress: () => navigation.replace('Main') }
-      ]);
-    } catch (error) {
-      setLoading(false);
-      Alert.alert('Hata', 'Giriş yapılamadı. Lütfen tekrar deneyin.');
+      let errorMessage = 'Giriş yapılamadı. Lütfen tekrar deneyin.';
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Hatalı şifre. Lütfen tekrar deneyin.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Geçersiz e-posta adresi.';
+      }
+      
+      Alert.alert('Hata', errorMessage);
     }
   };
 

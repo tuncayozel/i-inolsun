@@ -9,15 +9,14 @@ import {
   TextInput,
   RefreshControl,
   Alert,
+  FlatList,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
-import { 
-  mockCategories, 
-  mockJobs, 
-  getActiveJobs, 
-  formatPrice, 
-  formatDate, 
-  Job 
-} from '../data/mockData';
+import { JobService, Job } from '../services/jobService';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
+import { Timestamp } from 'firebase/firestore';
 
 interface FilterState {
   searchText: string;
@@ -38,9 +37,24 @@ export default function SearchScreen({ navigation }: any) {
     sortBy: 'recent',
   });
   
-  const [filteredJobs, setFilteredJobs] = useState<Job[]>(getActiveJobs());
+  const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [jobImages, setJobImages] = useState<{[key: string]: string}>({});
+
+  // Kategoriler
+  const categories = [
+    { id: '1', name: 'Temizlik', icon: '🧽', color: '#3B82F6' },
+    { id: '2', name: 'Taşıma', icon: '📦', color: '#10B981' },
+    { id: '3', name: 'Montaj', icon: '🔧', color: '#F59E0B' },
+    { id: '4', name: 'Grafik', icon: '🎨', color: '#EF4444' },
+    { id: '5', name: 'Yazılım', icon: '💻', color: '#8B5CF6' },
+    { id: '6', name: 'Eğitim', icon: '📚', color: '#06B6D4' },
+    { id: '7', name: 'Bakım', icon: '⚙️', color: '#84CC16' },
+    { id: '8', name: 'Diğer', icon: '📋', color: '#6B7280' },
+  ];
 
   // Konum listesi
   const locations = ['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Online'];
@@ -53,12 +67,74 @@ export default function SearchScreen({ navigation }: any) {
     { label: 'Bu Ay', value: 'this_month' },
   ];
 
+  // Firebase'den tüm işleri al
+  const fetchAllJobs = async () => {
+    try {
+      setLoading(true);
+      console.log('🔍 Firebase\'den tüm işler alınıyor...');
+      
+      const jobs = await JobService.getActiveJobs();
+      console.log('✅ Firebase\'den alınan işler:', jobs.length);
+      
+      if (jobs && jobs.length > 0) {
+        setAllJobs(jobs);
+        setFilteredJobs(jobs);
+        
+        // İş resimlerini yükle
+        await loadJobImages(jobs);
+      } else {
+        console.log('⚠️ Firebase\'de iş bulunamadı');
+        setAllJobs([]);
+        setFilteredJobs([]);
+      }
+    } catch (error: any) {
+      console.error('❌ İşleri alma hatası:', error);
+      Alert.alert('Hata', 'İşler yüklenirken bir hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
+      setAllJobs([]);
+      setFilteredJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // İş resimlerini Storage'dan yükle
+  const loadJobImages = async (jobsList: Job[]) => {
+    try {
+      console.log('🖼️ İş resimleri yükleniyor...');
+      const imagePromises = jobsList.map(async (job) => {
+        if (job.images && job.images.length > 0) {
+          try {
+            const imageUrl = await getDownloadURL(ref(storage, job.images[0]));
+            return { [job.id!]: imageUrl };
+          } catch (error) {
+            console.log(`⚠️ Resim yüklenemedi (${job.id}):`, error);
+            return {};
+          }
+        }
+        return {};
+      });
+
+      const imageResults = await Promise.all(imagePromises);
+      const newJobImages = imageResults.reduce((acc, curr) => ({ ...acc, ...curr }), {});
+      setJobImages(newJobImages);
+      console.log('🖼️ Resimler yüklendi:', Object.keys(newJobImages).length);
+    } catch (error) {
+      console.error('❌ Resim yükleme hatası:', error);
+    }
+  };
+
+  // Component mount olduğunda işleri yükle
+  useEffect(() => {
+    fetchAllJobs();
+  }, []);
+
+  // Filtreleri uygula
   useEffect(() => {
     applyFilters();
-  }, [filterState]);
+  }, [filterState, allJobs]);
 
   const applyFilters = () => {
-    let filtered = getActiveJobs();
+    let filtered = [...allJobs];
 
     // Arama metni filtresi
     if (filterState.searchText.trim()) {
@@ -96,16 +172,19 @@ export default function SearchScreen({ navigation }: any) {
       tomorrow.setDate(tomorrow.getDate() + 1);
       
       filtered = filtered.filter(job => {
-        const jobDate = new Date(job.date);
+        const jobDate = job.createdAt instanceof Date 
+          ? job.createdAt 
+          : (job.createdAt as Timestamp)?.toDate?.() || new Date();
+        
         switch (filterState.selectedDate) {
           case 'today':
             return jobDate.toDateString() === today.toDateString();
           case 'tomorrow':
             return jobDate.toDateString() === tomorrow.toDateString();
           case 'this_week':
-            const weekFromNow = new Date(today);
-            weekFromNow.setDate(weekFromNow.getDate() + 7);
-            return jobDate >= today && jobDate <= weekFromNow;
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return jobDate >= weekAgo;
           case 'this_month':
             return jobDate.getMonth() === today.getMonth() && 
                    jobDate.getFullYear() === today.getFullYear();
@@ -116,34 +195,34 @@ export default function SearchScreen({ navigation }: any) {
     }
 
     // Sıralama
-    filtered.sort((a, b) => {
-      switch (filterState.sortBy) {
-        case 'recent':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        case 'price_high':
-          return b.price - a.price;
-        case 'price_low':
-          return a.price - b.price;
-        case 'distance':
-          // Mock distance - gerçek projede gerçek konum hesaplaması yapılacak
-          return 0;
-        default:
-          return 0;
-      }
-    });
+    switch (filterState.sortBy) {
+      case 'recent':
+        filtered.sort((a, b) => {
+          const dateA = a.createdAt instanceof Date ? a.createdAt : (a.createdAt as Timestamp)?.toDate?.() || new Date();
+          const dateB = b.createdAt instanceof Date ? b.createdAt : (b.createdAt as Timestamp)?.toDate?.() || new Date();
+          return dateB.getTime() - dateA.getTime();
+        });
+        break;
+      case 'price_high':
+        filtered.sort((a, b) => b.price - a.price);
+        break;
+      case 'price_low':
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'distance':
+        // Mesafe sıralaması için basit alfabetik sıralama
+        filtered.sort((a, b) => a.location.localeCompare(b.location));
+        break;
+    }
 
     setFilteredJobs(filtered);
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      applyFilters();
-      setRefreshing(false);
-    }, 1000);
+  const handleInputChange = (field: keyof FilterState, value: string | { min: string; max: string }) => {
+    setFilterState(prev => ({ ...prev, [field]: value }));
   };
 
-  const clearAllFilters = () => {
+  const clearFilters = () => {
     setFilterState({
       searchText: '',
       selectedCategory: '',
@@ -154,359 +233,315 @@ export default function SearchScreen({ navigation }: any) {
     });
   };
 
-  const handleInputChange = (field: keyof FilterState, value: any) => {
-    if (field === 'priceRange') {
-      setFilterState(prev => ({
-        ...prev,
-        priceRange: { ...prev.priceRange, ...value }
-      }));
-    } else {
-      setFilterState(prev => ({ ...prev, [field]: value }));
-    }
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchAllJobs();
+    setRefreshing(false);
   };
 
   const renderJob = ({ item }: { item: Job }) => (
-    <TouchableOpacity
-      style={styles.jobCard}
-      onPress={() => navigation.navigate('JobDetail', { job: item })}
-    >
-      <View style={styles.jobHeader}>
-        <View style={styles.jobTitleContainer}>
-          <Text style={styles.jobTitle}>{item.title}</Text>
-          <View style={styles.jobStatusBadge}>
-            <Text style={styles.jobStatusText}>Aktif</Text>
+                  <TouchableOpacity 
+                style={styles.jobCard}
+                onPress={() => navigation.navigate('JobDetail', { jobId: item.id, job: item })}
+              >
+      {/* İş Resmi */}
+      {jobImages[item.id!] && (
+        <View style={styles.jobImageContainer}>
+          <Image 
+            source={{ uri: jobImages[item.id!] }} 
+            style={styles.jobImage}
+            resizeMode="cover"
+          />
+        </View>
+      )}
+      
+      <View style={styles.jobContent}>
+        <View style={styles.jobHeader}>
+          <View style={styles.jobTitleContainer}>
+            <Text style={styles.jobTitle}>{item.title}</Text>
+            <View style={styles.jobStatusBadge}>
+              <Text style={styles.jobStatusText}>Aktif</Text>
+            </View>
+          </View>
+          <Text style={styles.jobPrice}>
+            {item.price.toLocaleString('tr-TR')} TL
+          </Text>
+        </View>
+        
+        <View style={styles.jobCategoryContainer}>
+          <Text style={styles.jobCategory}>{item.category}</Text>
+        </View>
+        
+        <View style={styles.jobDetails}>
+          <View style={styles.jobDetailItem}>
+            <Text style={styles.jobDetailIcon}>📍</Text>
+            <Text style={styles.jobDetailText}>{item.location}</Text>
+          </View>
+          <View style={styles.jobDetailItem}>
+            <Text style={styles.jobDetailIcon}>👤</Text>
+            <Text style={styles.jobDetailText}>{item.employerName}</Text>
+          </View>
+          <View style={styles.jobDetailItem}>
+            <Text style={styles.jobDetailIcon}>📅</Text>
+            <Text style={styles.jobDetailText}>
+              {item.createdAt instanceof Date 
+                ? item.createdAt.toLocaleDateString('tr-TR')
+                : (item.createdAt as Timestamp)?.toDate?.()?.toLocaleDateString('tr-TR') || 'Tarih yok'
+              }
+            </Text>
           </View>
         </View>
-        <Text style={styles.jobPrice}>{formatPrice(item.price)}</Text>
-      </View>
-      
-      <View style={styles.jobCategoryContainer}>
-        <Text style={styles.jobCategory}>{item.category}</Text>
-      </View>
-      
-      <View style={styles.jobDetails}>
-        <View style={styles.jobDetailItem}>
-          <Text style={styles.jobDetailIcon}>📍</Text>
-          <Text style={styles.jobDetailText}>{item.location}</Text>
-        </View>
-        <View style={styles.jobDetailItem}>
-          <Text style={styles.jobDetailIcon}>📅</Text>
-          <Text style={styles.jobDetailText}>{formatDate(item.date)} - {item.time}</Text>
-        </View>
-        <View style={styles.jobDetailItem}>
-          <Text style={styles.jobDetailIcon}>👤</Text>
-          <Text style={styles.jobDetailText}>{item.employerName}</Text>
+        
+        <Text style={styles.jobDescription} numberOfLines={2}>
+          {item.description}
+        </Text>
+        
+        <View style={styles.jobFooter}>
+          <View style={styles.jobRating}>
+            <Text style={styles.jobRatingIcon}>⭐</Text>
+            <Text style={styles.jobRatingText}>4.8</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.applyButton}
+            onPress={() => navigation.navigate('JobDetail', { jobId: item.id, job: item })}
+          >
+            <Text style={styles.applyButtonText}>Başvur</Text>
+          </TouchableOpacity>
         </View>
       </View>
-      
-      <Text style={styles.jobDescription} numberOfLines={2}>
-        {item.description}
-      </Text>
     </TouchableOpacity>
   );
 
-  const renderFilterSection = () => (
-    <View style={styles.filtersContainer}>
-      {/* Kategori Filtresi */}
-      <View style={styles.filterSection}>
-        <Text style={styles.filterSectionTitle}>Kategori</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              !filterState.selectedCategory && styles.filterChipActive
-            ]}
-            onPress={() => handleInputChange('selectedCategory', '')}
-          >
-            <Text style={[
-              styles.filterChipText,
-              !filterState.selectedCategory && styles.filterChipTextActive
-            ]}>
-              Tümü
-            </Text>
-          </TouchableOpacity>
-          {mockCategories.map((category) => (
-            <TouchableOpacity
-              key={category.id}
-              style={[
-                styles.filterChip,
-                filterState.selectedCategory === category.name && styles.filterChipActive
-              ]}
-              onPress={() => handleInputChange('selectedCategory', category.name)}
-            >
-              <Text style={[
-                styles.filterChipText,
-                filterState.selectedCategory === category.name && styles.filterChipTextActive
-              ]}>
-                {category.icon} {category.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Fiyat Aralığı */}
-      <View style={styles.filterSection}>
-        <Text style={styles.filterSectionTitle}>Fiyat Aralığı (TL)</Text>
-        <View style={styles.priceRangeContainer}>
-          <TextInput
-            style={styles.priceInput}
-            placeholder="Min"
-            value={filterState.priceRange.min}
-            onChangeText={(value) => handleInputChange('priceRange', { min: value })}
-            keyboardType="numeric"
-          />
-          <Text style={styles.priceRangeSeparator}>-</Text>
-          <TextInput
-            style={styles.priceInput}
-            placeholder="Max"
-            value={filterState.priceRange.max}
-            onChangeText={(value) => handleInputChange('priceRange', { max: value })}
-            keyboardType="numeric"
-          />
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>İşler yükleniyor...</Text>
+          <Text style={styles.loadingSubtext}>Firebase'den veriler alınıyor</Text>
         </View>
-      </View>
-
-      {/* Konum Filtresi */}
-      <View style={styles.filterSection}>
-        <Text style={styles.filterSectionTitle}>Konum</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              !filterState.selectedLocation && styles.filterChipActive
-            ]}
-            onPress={() => handleInputChange('selectedLocation', '')}
-          >
-            <Text style={[
-              styles.filterChipText,
-              !filterState.selectedLocation && styles.filterChipTextActive
-            ]}>
-              Tümü
-            </Text>
-          </TouchableOpacity>
-          {locations.map((location) => (
-            <TouchableOpacity
-              key={location}
-              style={[
-                styles.filterChip,
-                filterState.selectedLocation === location && styles.filterChipActive
-              ]}
-              onPress={() => handleInputChange('selectedLocation', location)}
-            >
-              <Text style={[
-                styles.filterChipText,
-                filterState.selectedLocation === location && styles.filterChipTextActive
-              ]}>
-                📍 {location}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Tarih Filtresi */}
-      <View style={styles.filterSection}>
-        <Text style={styles.filterSectionTitle}>Tarih</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              !filterState.selectedDate && styles.filterChipActive
-            ]}
-            onPress={() => handleInputChange('selectedDate', '')}
-          >
-            <Text style={[
-              styles.filterChipText,
-              !filterState.selectedDate && styles.filterChipTextActive
-            ]}>
-              Tümü
-            </Text>
-          </TouchableOpacity>
-          {dateOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.filterChip,
-                filterState.selectedDate === option.value && styles.filterChipActive
-              ]}
-              onPress={() => handleInputChange('selectedDate', option.value)}
-            >
-              <Text style={[
-                styles.filterChipText,
-                filterState.selectedDate === option.value && styles.filterChipTextActive
-              ]}>
-                📅 {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Sıralama */}
-      <View style={styles.filterSection}>
-        <Text style={styles.filterSectionTitle}>Sıralama</Text>
-        <View style={styles.sortContainer}>
-          <TouchableOpacity
-            style={[
-              styles.sortButton,
-              filterState.sortBy === 'recent' && styles.sortButtonActive
-            ]}
-            onPress={() => handleInputChange('sortBy', 'recent')}
-          >
-            <Text style={[
-              styles.sortButtonText,
-              filterState.sortBy === 'recent' && styles.sortButtonTextActive
-            ]}>
-              En Yeni
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.sortButton,
-              filterState.sortBy === 'price_high' && styles.sortButtonActive
-            ]}
-            onPress={() => handleInputChange('sortBy', 'price_high')}
-          >
-            <Text style={[
-              styles.sortButtonText,
-              filterState.sortBy === 'price_high' && styles.sortButtonTextActive
-            ]}>
-              Fiyat ↓
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.sortButton,
-              filterState.sortBy === 'price_low' && styles.sortButtonActive
-            ]}
-            onPress={() => handleInputChange('sortBy', 'price_low')}
-          >
-            <Text style={[
-              styles.sortButtonText,
-              filterState.sortBy === 'price_low' && styles.sortButtonTextActive
-            ]}>
-              Fiyat ↑
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#2563EB']}
-            tintColor="#2563EB"
-          />
-        }
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>← Geri</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Arama & Filtreleme</Text>
-          <TouchableOpacity 
-            style={styles.clearButton}
-            onPress={clearAllFilters}
-          >
-            <Text style={styles.clearButtonText}>Temizle</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>🔍 İş Ara</Text>
+        <Text style={styles.subtitle}>İstediğiniz işi bulun</Text>
+      </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputContainer}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="İş, kategori veya işveren ara..."
-              value={filterState.searchText}
-              onChangeText={(value) => handleInputChange('searchText', value)}
-              placeholderTextColor="#9CA3AF"
-            />
-            {filterState.searchText.length > 0 && (
-              <TouchableOpacity 
-                style={styles.clearSearchButton}
-                onPress={() => handleInputChange('searchText', '')}
-              >
-                <Text style={styles.clearSearchButtonText}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+      {/* Arama Çubuğu */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="İş ara... (temizlik, montaj, vb.)"
+          value={filterState.searchText}
+          onChangeText={(value) => handleInputChange('searchText', value)}
+        />
+        <TouchableOpacity 
+          style={styles.filterButton}
+          onPress={() => setShowFilters(!showFilters)}
+        >
+          <Text style={styles.filterButtonText}>🔧</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Filters Toggle */}
-        <View style={styles.filtersToggleContainer}>
-          <TouchableOpacity
-            style={styles.filtersToggleButton}
-            onPress={() => setShowFilters(!showFilters)}
-          >
-            <Text style={styles.filtersToggleIcon}>
-              {showFilters ? '🔽' : '🔼'}
-            </Text>
-            <Text style={styles.filtersToggleText}>
-              {showFilters ? 'Filtreleri Gizle' : 'Filtreleri Göster'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Filters */}
-        {showFilters && renderFilterSection()}
-
-        {/* Results Header */}
-        <View style={styles.resultsHeader}>
-          <Text style={styles.resultsTitle}>
-            {filteredJobs.length} iş bulundu
-          </Text>
-          {Object.values(filterState).some(value => 
-            value && (typeof value === 'string' ? value !== '' : 
-            typeof value === 'object' ? Object.values(value).some(v => v !== '') : false)
-          ) && (
-            <Text style={styles.activeFiltersText}>
-              Aktif filtreler var
-            </Text>
-          )}
-        </View>
-
-        {/* Jobs List */}
-        <View style={styles.jobsList}>
-          {filteredJobs.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateIcon}>🔍</Text>
-              <Text style={styles.emptyStateText}>
-                {filterState.searchText ? 'Arama sonucu bulunamadı' : 'Bu kriterlere uygun iş bulunamadı'}
-              </Text>
-              <Text style={styles.emptyStateSubtext}>
-                Farklı filtreler deneyin veya arama metnini değiştirin
-              </Text>
-              <TouchableOpacity
-                style={styles.emptyStateButton}
-                onPress={clearAllFilters}
-              >
-                <Text style={styles.emptyStateButtonText}>Filtreleri Temizle</Text>
-              </TouchableOpacity>
+      {/* Filtreler */}
+      {showFilters && (
+        <View style={styles.filtersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {/* Kategori Filtresi */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>Kategori</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[
+                      styles.categoryChip,
+                      filterState.selectedCategory === category.name && styles.categoryChipSelected
+                    ]}
+                    onPress={() => handleInputChange('selectedCategory', 
+                      filterState.selectedCategory === category.name ? '' : category.name
+                    )}
+                  >
+                    <Text style={styles.categoryChipIcon}>{category.icon}</Text>
+                    <Text style={[
+                      styles.categoryChipText,
+                      filterState.selectedCategory === category.name && styles.categoryChipTextSelected
+                    ]}>
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
-          ) : (
-            filteredJobs.map((job) => (
-              <View key={job.id}>
-                {renderJob({ item: job })}
+
+            {/* Fiyat Filtresi */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>Fiyat Aralığı</Text>
+              <View style={styles.priceInputContainer}>
+                <TextInput
+                  style={styles.priceInput}
+                  placeholder="Min"
+                  value={filterState.priceRange.min}
+                  onChangeText={(value) => handleInputChange('priceRange', { ...filterState.priceRange, min: value })}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.priceSeparator}>-</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  placeholder="Max"
+                  value={filterState.priceRange.max}
+                  onChangeText={(value) => handleInputChange('priceRange', { ...filterState.priceRange, max: value })}
+                  keyboardType="numeric"
+                />
               </View>
-            ))
-          )}
+            </View>
+
+            {/* Konum Filtresi */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>Konum</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {locations.map((location) => (
+                  <TouchableOpacity
+                    key={location}
+                    style={[
+                      styles.locationChip,
+                      filterState.selectedLocation === location && styles.locationChipSelected
+                    ]}
+                    onPress={() => handleInputChange('selectedLocation', 
+                      filterState.selectedLocation === location ? '' : location
+                    )}
+                  >
+                    <Text style={[
+                      styles.locationChipText,
+                      filterState.selectedLocation === location && styles.locationChipTextSelected
+                    ]}>
+                      {location}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Tarih Filtresi */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>Tarih</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {dateOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.dateChip,
+                      filterState.selectedDate === option.value && styles.dateChipSelected
+                    ]}
+                    onPress={() => handleInputChange('selectedDate', 
+                      filterState.selectedDate === option.value ? '' : option.value
+                    )}
+                  >
+                    <Text style={[
+                      styles.dateChipText,
+                      filterState.selectedDate === option.value && styles.dateChipTextSelected
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Sıralama */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>Sıralama</Text>
+              <View style={styles.sortContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.sortButton,
+                    filterState.sortBy === 'recent' && styles.sortButtonActive
+                  ]}
+                  onPress={() => handleInputChange('sortBy', 'recent')}
+                >
+                  <Text style={[
+                    styles.sortButtonText,
+                    filterState.sortBy === 'recent' && styles.sortButtonTextActive
+                  ]}>Yeni</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.sortButton,
+                    filterState.sortBy === 'price_low' && styles.sortButtonActive
+                  ]}
+                  onPress={() => handleInputChange('sortBy', 'price_low')}
+                >
+                  <Text style={[
+                    styles.sortButtonText,
+                    filterState.sortBy === 'price_low' && styles.sortButtonTextActive
+                  ]}>Ucuz</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.sortButton,
+                    filterState.sortBy === 'price_high' && styles.sortButtonActive
+                  ]}
+                  onPress={() => handleInputChange('sortBy', 'price_high')}
+                >
+                  <Text style={[
+                    styles.sortButtonText,
+                    filterState.sortBy === 'price_high' && styles.sortButtonTextActive
+                  ]}>Pahalı</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Filtreleri Temizle */}
+          <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+            <Text style={styles.clearFiltersText}>Filtreleri Temizle</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+      )}
+
+      {/* Sonuç Sayısı */}
+      <View style={styles.resultsHeader}>
+        <Text style={styles.resultsCount}>
+          {filteredJobs.length} iş bulundu
+        </Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+          <Text style={styles.refreshButtonText}>🔄</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* İş Listesi */}
+      {filteredJobs.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateIcon}>🔍</Text>
+          <Text style={styles.emptyStateText}>
+            {filterState.searchText || filterState.selectedCategory || filterState.selectedLocation
+              ? 'Arama kriterlerinize uygun iş bulunamadı'
+              : 'Henüz iş ilanı yok'
+            }
+          </Text>
+          <TouchableOpacity 
+            style={styles.emptyStateButton}
+            onPress={clearFilters}
+          >
+            <Text style={styles.emptyStateButtonText}>Filtreleri Temizle</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredJobs}
+          renderItem={renderJob}
+          keyExtractor={(item) => item.id || Math.random().toString()}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={styles.jobsList}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -516,57 +551,50 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
-  scrollContent: {
-    paddingBottom: 120, // Alt navigasyon için boşluk
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#1F2937',
+    marginTop: 10,
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 5,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     padding: 16,
     paddingTop: 60,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#2563EB',
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: 20,
+  title: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#1F2937',
   },
-  clearButton: {
-    padding: 8,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    color: '#EF4444',
-    fontWeight: '600',
+  subtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 4,
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-  },
-  searchIcon: {
-    fontSize: 18,
-    marginLeft: 16,
-    color: '#6B7280',
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
@@ -575,36 +603,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1F2937',
   },
-  clearSearchButton: {
-    padding: 8,
-    marginRight: 8,
+  filterButton: {
+    padding: 10,
   },
-  clearSearchButtonText: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    fontWeight: 'bold',
-  },
-  filtersToggleContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  filtersToggleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-  },
-  filtersToggleIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  filtersToggleText: {
-    fontSize: 16,
-    color: '#2563EB',
-    fontWeight: '600',
+  filterButtonText: {
+    fontSize: 24,
   },
   filtersContainer: {
     backgroundColor: '#FFFFFF',
@@ -616,13 +619,15 @@ const styles = StyleSheet.create({
   filterSection: {
     marginBottom: 20,
   },
-  filterSectionTitle: {
+  filterLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 12,
   },
-  filterChip: {
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -631,19 +636,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  filterChipActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+  categoryChipIcon: {
+    fontSize: 18,
+    marginRight: 8,
   },
-  filterChipText: {
+  categoryChipText: {
     fontSize: 14,
     color: '#6B7280',
     fontWeight: '500',
   },
-  filterChipTextActive: {
+  categoryChipSelected: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  categoryChipTextSelected: {
     color: '#FFFFFF',
   },
-  priceRangeContainer: {
+  priceInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -658,11 +667,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  priceRangeSeparator: {
+  priceSeparator: {
     fontSize: 18,
     color: '#6B7280',
     marginHorizontal: 12,
   },
+  locationChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  locationChipText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  locationChipSelected: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  locationChipTextSelected: {
+    color: '#FFFFFF',
+  },
+  dateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  dateChipText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+     dateChipSelected: {
+     backgroundColor: '#2563EB',
+     borderColor: '#2563EB',
+   },
+   dateChipTextSelected: {
+     color: '#FFFFFF',
+   },
   sortContainer: {
     flexDirection: 'row',
     gap: 8,
@@ -689,30 +744,48 @@ const styles = StyleSheet.create({
   sortButtonTextActive: {
     color: '#FFFFFF',
   },
+  clearFiltersButton: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginTop: 16,
+  },
+  clearFiltersText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   resultsHeader: {
-    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  resultsTitle: {
+  resultsCount: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
   },
-  activeFiltersText: {
-    fontSize: 14,
-    color: '#2563EB',
-    marginTop: 4,
+  refreshButton: {
+    padding: 8,
+  },
+  refreshButtonText: {
+    fontSize: 20,
   },
   jobsList: {
     paddingHorizontal: 16,
+    paddingBottom: 120, // Alt navigasyon için boşluk
   },
   jobCard: {
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
@@ -725,11 +798,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F0F0F0',
   },
+  jobImageContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 16,
+  },
+  jobImage: {
+    width: '100%',
+    height: '100%',
+  },
+  jobContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
   jobHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   jobTitleContainer: {
     flex: 1,
@@ -739,7 +827,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   jobStatusBadge: {
     backgroundColor: '#10B981',
@@ -754,12 +842,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   jobPrice: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#2563EB',
   },
   jobCategoryContainer: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   jobCategory: {
     fontSize: 14,
@@ -772,12 +860,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   jobDetails: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   jobDetailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   jobDetailIcon: {
     fontSize: 16,
@@ -793,6 +881,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4B5563',
     lineHeight: 20,
+  },
+  jobFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  jobRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  jobRatingIcon: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  jobRatingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  applyButton: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  applyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',

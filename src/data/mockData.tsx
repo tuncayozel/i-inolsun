@@ -39,6 +39,7 @@ export interface Conversation {
   lastMessageTime: Date;
   unreadCount: number;
   jobTitle: string;
+  jobId: string; // Eksik olan property
 }
 
 export interface Notification {
@@ -144,6 +145,7 @@ export const mockConversations: Conversation[] = [
     lastMessageTime: new Date('2025-01-14T15:30:00'),
     unreadCount: 2,
     jobTitle: 'Ev Temizliği - Haftalık',
+    jobId: '1',
   },
   {
     id: '2',
@@ -153,6 +155,7 @@ export const mockConversations: Conversation[] = [
     lastMessageTime: new Date('2025-01-14T12:15:00'),
     unreadCount: 0,
     jobTitle: 'Logo Tasarımı',
+    jobId: '2',
   },
   {
     id: '3',
@@ -162,6 +165,7 @@ export const mockConversations: Conversation[] = [
     lastMessageTime: new Date('2025-01-13T16:45:00'),
     unreadCount: 0,
     jobTitle: 'Mobilya Montajı',
+    jobId: '3',
   },
   {
     id: '4',
@@ -171,6 +175,7 @@ export const mockConversations: Conversation[] = [
     lastMessageTime: new Date('2025-01-12T10:20:00'),
     unreadCount: 1,
     jobTitle: 'İngilizce Özel Ders',
+    jobId: '4',
   },
   {
     id: '5',
@@ -180,6 +185,7 @@ export const mockConversations: Conversation[] = [
     lastMessageTime: new Date('2025-01-11T14:30:00'),
     unreadCount: 0,
     jobTitle: 'Ofis Taşıma',
+    jobId: '5',
   },
 ];
 

@@ -8,35 +8,132 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { auth } from '../config/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { Timestamp } from 'firebase/firestore';
 
-import { mockNotifications, Notification } from '../data/mockData';
+interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'job_application' | 'message' | 'system' | 'reminder' | 'payment' | 'job_update';
+  isRead: boolean;
+  timestamp: Date | Timestamp;
+  data?: {
+    jobId?: string;
+    messageId?: string;
+    amount?: number;
+    [key: string]: any;
+  };
+}
 
 export default function NotificationScreen({ navigation }: any) {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setNotifications(mockNotifications);
-      setRefreshing(false);
-    }, 1000);
-  };
+  // Auth state'i dinle
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (user) {
+        setupNotificationsListener(user.uid);
+      } else {
+        setLoading(false);
+        Alert.alert('Hata', 'Bildirimleri görüntülemek için giriş yapmanız gerekiyor!');
+        navigation.navigate('Login');
+      }
+    });
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === notificationId 
-          ? { ...notif, isRead: true }
-          : notif
-      )
+    return () => unsubscribe();
+  }, [navigation]);
+
+  // Real-time notifications dinleme
+  const setupNotificationsListener = (userId: string) => {
+    console.log('🔔 Real-time notifications dinleme başlatılıyor...');
+    
+    const notificationsQuery = query(
+      collection(db, 'notifications'),
+      where('userId', '==', userId),
+      orderBy('timestamp', 'desc')
     );
+
+    const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
+      const newNotifications: Notification[] = [];
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const notification: Notification = {
+          id: doc.id,
+          userId: data.userId,
+          title: data.title,
+          message: data.message,
+          type: data.type,
+          isRead: data.isRead || false,
+          timestamp: data.timestamp,
+          data: data.data || {}
+        };
+        newNotifications.push(notification);
+      });
+
+      console.log('🔄 Real-time notifications güncelleme:', newNotifications.length, 'bildirim');
+      setNotifications(newNotifications);
+      setLoading(false);
+    }, (error) => {
+      console.error('❌ Real-time notifications dinleme hatası:', error);
+      setLoading(false);
+    });
+
+    return () => {
+      console.log('🔕 Real-time notifications dinleme durduruldu');
+      unsubscribe();
+    };
   };
 
-  const markAllAsRead = () => {
+  const onRefresh = async () => {
+    if (!currentUser) return;
+    
+    setRefreshing(true);
+    try {
+      console.log('🔄 Bildirimler yenileniyor...');
+      // Real-time listener zaten aktif, sadece loading state'i güncelle
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('✅ Bildirimler yenilendi');
+    } catch (error: any) {
+      console.error('❌ Bildirim yenileme hatası:', error);
+      Alert.alert('Hata', 'Bildirimler yenilenemedi: ' + (error.message || 'Bilinmeyen hata'));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const markAsRead = async (notificationId: string) => {
+    if (!currentUser) return;
+
+    try {
+      console.log('📖 Bildirim okundu olarak işaretleniyor...');
+      
+      await updateDoc(doc(db, 'notifications', notificationId), {
+        isRead: true
+      });
+      
+      console.log('✅ Bildirim okundu olarak işaretlendi');
+    } catch (error: any) {
+      console.error('❌ Bildirim işaretleme hatası:', error);
+      Alert.alert('Hata', 'Bildirim işaretlenemedi: ' + (error.message || 'Bilinmeyen hata'));
+    }
+  };
+
+  const markAllAsRead = async () => {
+    if (!currentUser) return;
+
     Alert.alert(
       'Tümünü Okundu İşaretle',
       'Tüm bildirimleri okundu olarak işaretlemek istiyor musunuz?',
@@ -44,17 +141,34 @@ export default function NotificationScreen({ navigation }: any) {
         { text: 'İptal', style: 'cancel' },
         { 
           text: 'Evet', 
-          onPress: () => {
-            setNotifications(prev => 
-              prev.map(notif => ({ ...notif, isRead: true }))
-            );
+          onPress: async () => {
+            try {
+              console.log('📖 Tüm bildirimler okundu olarak işaretleniyor...');
+              
+              const unreadNotifications = notifications.filter(n => !n.isRead);
+              const updatePromises = unreadNotifications.map(notification =>
+                updateDoc(doc(db, 'notifications', notification.id), {
+                  isRead: true
+                })
+              );
+              
+              await Promise.all(updatePromises);
+              
+              console.log('✅ Tüm bildirimler okundu olarak işaretlendi');
+              Alert.alert('Başarılı', 'Tüm bildirimler okundu olarak işaretlendi!');
+            } catch (error: any) {
+              console.error('❌ Toplu bildirim işaretleme hatası:', error);
+              Alert.alert('Hata', 'Bildirimler işaretlenemedi: ' + (error.message || 'Bilinmeyen hata'));
+            }
           }
         }
       ]
     );
   };
 
-  const deleteNotification = (notificationId: string) => {
+  const deleteNotification = async (notificationId: string) => {
+    if (!currentUser) return;
+
     Alert.alert(
       'Bildirimi Sil',
       'Bu bildirimi silmek istiyor musunuz?',
@@ -63,10 +177,17 @@ export default function NotificationScreen({ navigation }: any) {
         { 
           text: 'Sil', 
           style: 'destructive',
-          onPress: () => {
-            setNotifications(prev => 
-              prev.filter(notif => notif.id !== notificationId)
-            );
+          onPress: async () => {
+            try {
+              console.log('🗑️ Bildirim siliniyor...');
+              
+              await deleteDoc(doc(db, 'notifications', notificationId));
+              
+              console.log('✅ Bildirim silindi');
+            } catch (error: any) {
+              console.error('❌ Bildirim silme hatası:', error);
+              Alert.alert('Hata', 'Bildirim silinemedi: ' + (error.message || 'Bilinmeyen hata'));
+            }
           }
         }
       ]
@@ -94,95 +215,114 @@ export default function NotificationScreen({ navigation }: any) {
         return '⚙️';
       case 'reminder':
         return '⏰';
+      case 'payment':
+        return '💰';
+      case 'job_update':
+        return '📋';
       default:
         return '🔔';
     }
   };
 
-  const getNotificationColor = (type: string) => {
-    switch (type) {
-      case 'job_application':
-        return '#10B981';
-      case 'message':
-        return '#3B82F6';
-      case 'system':
-        return '#6B7280';
-      case 'reminder':
-        return '#F59E0B';
-      default:
-        return '#6B7280';
-    }
-  };
-
-  const formatTime = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 60) {
-      return `${minutes} dakika önce`;
-    } else if (hours < 24) {
-      return `${hours} saat önce`;
-    } else if (days < 7) {
-      return `${days} gün önce`;
+  const formatTime = (timestamp: Date | Timestamp) => {
+    if (!timestamp) return '';
+    
+    let date: Date;
+    
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
+      date = timestamp.toDate();
     } else {
-      return date.toLocaleDateString('tr-TR');
+      date = new Date(timestamp);
     }
+
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Az önce';
+    if (diffInMinutes < 60) return `${diffInMinutes} dakika önce`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} saat önce`;
+    if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)} gün önce`;
+    
+    return date.toLocaleDateString('tr-TR', { 
+      day: 'numeric', 
+      month: 'short' 
+    });
   };
 
   const handleNotificationPress = (notification: Notification) => {
-    markAsRead(notification.id);
-    
-    // Navigate based on notification type
+    // Bildirimi okundu olarak işaretle
+    if (!notification.isRead) {
+      markAsRead(notification.id);
+    }
+
+    // Bildirim tipine göre yönlendirme
     switch (notification.type) {
       case 'job_application':
         if (notification.data?.jobId) {
-          // Navigate to job detail
-          Alert.alert('İş Detayı', 'İş detayına yönlendiriliyorsunuz...');
+          navigation.navigate('JobDetail', { jobId: notification.data.jobId });
         }
         break;
       case 'message':
-        if (notification.data?.conversationId) {
-          // Navigate to chat
-          navigation.navigate('Chat', { conversationId: notification.data.conversationId });
+        if (notification.data?.messageId) {
+          navigation.navigate('Messages');
         }
         break;
-      case 'system':
-        Alert.alert('Sistem Güncellemesi', 'Yeni özellikler eklendi!');
+      case 'payment':
+        navigation.navigate('Payments');
         break;
-      case 'reminder':
-        Alert.alert('Hatırlatma', 'İşinizi unutmayın!');
+      case 'job_update':
+        if (notification.data?.jobId) {
+          navigation.navigate('JobDetail', { jobId: notification.data.jobId });
+        }
+        break;
+      default:
+        // Sistem bildirimleri için bir şey yapma
         break;
     }
   };
 
+  if (!currentUser) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Giriş yapılıyor...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Bildirimler yükleniyor...</Text>
+          <Text style={styles.loadingSubtext}>Firebase'den veriler alınıyor</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const filteredNotifications = getFilteredNotifications();
-  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>← Geri</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bildirimler</Text>
-        <TouchableOpacity 
-          style={styles.markAllReadButton}
-          onPress={markAllAsRead}
-        >
-          <Text style={styles.markAllReadText}>Tümünü Okundu İşaretle</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>🔔 Bildirimler</Text>
+        {notifications.some(n => !n.isRead) && (
+          <TouchableOpacity style={styles.markAllReadButton} onPress={markAllAsRead}>
+            <Text style={styles.markAllReadButtonText}>Tümünü Okundu İşaretle</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
           onPress={() => setFilter('all')}
         >
@@ -190,48 +330,43 @@ export default function NotificationScreen({ navigation }: any) {
             Tümü ({notifications.length})
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.filterTab, filter === 'unread' && styles.filterTabActive]}
           onPress={() => setFilter('unread')}
         >
           <Text style={[styles.filterTabText, filter === 'unread' && styles.filterTabTextActive]}>
-            Okunmamış ({unreadCount})
+            Okunmamış ({notifications.filter(n => !n.isRead).length})
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.filterTab, filter === 'read' && styles.filterTabActive]}
           onPress={() => setFilter('read')}
         >
           <Text style={[styles.filterTabText, filter === 'read' && styles.filterTabTextActive]}>
-            Okunmuş ({notifications.length - unreadCount})
+            Okunmuş ({notifications.filter(n => n.isRead).length})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Notifications List */}
       <ScrollView
-        style={styles.notificationsContainer}
+        style={styles.notificationsList}
+        contentContainerStyle={styles.notificationsContent}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#2563EB']}
-            tintColor="#2563EB"
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
         {filteredNotifications.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateIcon}>🔔</Text>
-            <Text style={styles.emptyStateText}>
+            <Text style={styles.emptyStateTitle}>
               {filter === 'all' ? 'Henüz bildirim yok' : 
-               filter === 'unread' ? 'Okunmamış bildirim yok' : 
-               'Okunmuş bildirim yok'}
+               filter === 'unread' ? 'Okunmamış bildirim yok' : 'Okunmuş bildirim yok'}
             </Text>
-            <Text style={styles.emptyStateSubtext}>
-              {filter === 'all' ? 'Yeni bildirimler geldiğinde burada görünecek' :
-               filter === 'unread' ? 'Tüm bildirimler okundu' :
-               'Okunmuş bildirimler burada görünecek'}
+            <Text style={styles.emptyStateSubtitle}>
+              {filter === 'all' ? 'Yeni işler, mesajlar ve güncellemeler burada görünecek' :
+               filter === 'unread' ? 'Tüm bildirimler okundu olarak işaretlendi' : 'Okunmuş bildirimler burada görünecek'}
             </Text>
           </View>
         ) : (
@@ -240,48 +375,44 @@ export default function NotificationScreen({ navigation }: any) {
               key={notification.id}
               style={[
                 styles.notificationCard,
-                !notification.isRead && styles.notificationCardUnread
+                !notification.isRead && styles.unreadNotification
               ]}
               onPress={() => handleNotificationPress(notification)}
             >
-              <View style={styles.notificationIconContainer}>
+              <View style={styles.notificationHeader}>
                 <Text style={styles.notificationIcon}>
                   {getNotificationIcon(notification.type)}
                 </Text>
-                <View style={[
-                  styles.notificationTypeIndicator,
-                  { backgroundColor: getNotificationColor(notification.type) }
-                ]} />
-              </View>
-              
-              <View style={styles.notificationContent}>
-                <View style={styles.notificationHeader}>
-                  <Text style={[
-                    styles.notificationTitle,
-                    !notification.isRead && styles.notificationTitleUnread
-                  ]}>
-                    {notification.title}
+                <View style={styles.notificationInfo}>
+                  <Text style={styles.notificationTitle}>{notification.title}</Text>
+                  <Text style={styles.notificationTime}>
+                    {formatTime(notification.timestamp)}
                   </Text>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => deleteNotification(notification.id)}
-                  >
-                    <Text style={styles.deleteButtonText}>✕</Text>
-                  </TouchableOpacity>
                 </View>
-                
-                <Text style={styles.notificationMessage}>
-                  {notification.message}
-                </Text>
-                
-                <Text style={styles.notificationTime}>
-                  {formatTime(notification.timestamp)}
-                </Text>
+                {!notification.isRead && (
+                  <View style={styles.unreadIndicator} />
+                )}
               </View>
               
-              {!notification.isRead && (
-                <View style={styles.unreadIndicator} />
-              )}
+              <Text style={styles.notificationMessage}>{notification.message}</Text>
+              
+              <View style={styles.notificationActions}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => markAsRead(notification.id)}
+                >
+                  <Text style={styles.actionButtonText}>
+                    {notification.isRead ? 'Okundu' : 'Okundu İşaretle'}
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={() => deleteNotification(notification.id)}
+                >
+                  <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Sil</Text>
+                </TouchableOpacity>
+              </View>
             </TouchableOpacity>
           ))
         )}
@@ -295,6 +426,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  loadingSubtext: {
+    marginTop: 5,
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -305,14 +452,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#2563EB',
-    fontWeight: '600',
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -321,7 +460,7 @@ const styles = StyleSheet.create({
   markAllReadButton: {
     padding: 8,
   },
-  markAllReadText: {
+  markAllReadButtonText: {
     fontSize: 14,
     color: '#2563EB',
     fontWeight: '600',
@@ -354,11 +493,13 @@ const styles = StyleSheet.create({
   filterTabTextActive: {
     color: '#FFFFFF',
   },
-  notificationsContainer: {
+  notificationsList: {
     flex: 1,
   },
+  notificationsContent: {
+    paddingBottom: 20, // Add some padding at the bottom for the filter tabs
+  },
   notificationCard: {
-    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     marginVertical: 6,
@@ -375,67 +516,63 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  notificationCardUnread: {
+  unreadNotification: {
     backgroundColor: '#F8FAFC',
     borderColor: '#2563EB',
     borderWidth: 2,
   },
-  notificationIconContainer: {
-    position: 'relative',
-    marginRight: 16,
+  notificationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   notificationIcon: {
     fontSize: 32,
     width: 40,
     textAlign: 'center',
+    marginRight: 12,
   },
-  notificationTypeIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  notificationContent: {
+  notificationInfo: {
     flex: 1,
-  },
-  notificationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
   },
   notificationTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
-    flex: 1,
-    marginRight: 8,
-  },
-  notificationTitleUnread: {
     color: '#1F2937',
-    fontWeight: '700',
+    marginBottom: 4,
   },
-  deleteButton: {
-    padding: 4,
-  },
-  deleteButtonText: {
-    fontSize: 16,
+  notificationTime: {
+    fontSize: 12,
     color: '#9CA3AF',
-    fontWeight: 'bold',
   },
   notificationMessage: {
     fontSize: 14,
     color: '#4B5563',
     lineHeight: 20,
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  notificationTime: {
-    fontSize: 12,
-    color: '#9CA3AF',
+  notificationActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
   },
   unreadIndicator: {
     position: 'absolute',
@@ -455,14 +592,14 @@ const styles = StyleSheet.create({
     fontSize: 64,
     marginBottom: 16,
   },
-  emptyStateText: {
+  emptyStateTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 8,
     textAlign: 'center',
   },
-  emptyStateSubtext: {
+  emptyStateSubtitle: {
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',

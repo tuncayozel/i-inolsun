@@ -12,6 +12,7 @@ import {
   ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthService } from '../services/authService';
 
 export default function RegisterScreen({ navigation }: any) {
   const [formData, setFormData] = useState({
@@ -48,29 +49,42 @@ export default function RegisterScreen({ navigation }: any) {
     setLoading(true);
     
     try {
-      // Mock register - gerçek projede Firebase Auth kullanılacak
-      // Şimdilik basit bir kullanıcı verisi oluşturuyoruz
-      const userData = {
-        id: Date.now().toString(),
-        name: name,
-        email: email,
-        phone: phone,
-        avatar: '👤'
-      };
+      // Firebase Auth ile kayıt ol
+      const userCredential = await AuthService.register(email, password, name);
+      const user = userCredential.user;
       
-      const userToken = 'mock_token_' + Date.now();
-      
-      // Kullanıcı verilerini AsyncStorage'a kaydet
-      await AsyncStorage.setItem('userToken', userToken);
-      await AsyncStorage.setItem('userData', JSON.stringify(userData));
-      
+      if (user) {
+        // Kullanıcı verilerini güncelle (telefon ekle)
+        await AuthService.updateUserData(user.uid, {
+          phone: phone,
+          location: 'İstanbul, Türkiye'
+        });
+        
+        // Kullanıcı verilerini AsyncStorage'a kaydet
+        const userData = await AuthService.getUserData(user.uid);
+        if (userData) {
+          await AsyncStorage.setItem('userToken', user.uid);
+          await AsyncStorage.setItem('userData', JSON.stringify(userData));
+        }
+        
+        setLoading(false);
+        Alert.alert('Başarılı', 'Kayıt tamamlandı! Otomatik giriş yapılıyor...', [
+          { text: 'Tamam', onPress: () => navigation.replace('Main') }
+        ]);
+      }
+    } catch (error: any) {
       setLoading(false);
-      Alert.alert('Başarılı', 'Kayıt tamamlandı! Otomatik giriş yapılıyor...', [
-        { text: 'Tamam', onPress: () => navigation.replace('Main') }
-      ]);
-    } catch (error) {
-      setLoading(false);
-      Alert.alert('Hata', 'Kayıt yapılamadı. Lütfen tekrar deneyin.');
+      let errorMessage = 'Kayıt yapılamadı. Lütfen tekrar deneyin.';
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Bu e-posta adresi zaten kullanılıyor.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Geçersiz e-posta adresi.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Şifre çok zayıf. En az 6 karakter kullanın.';
+      }
+      
+      Alert.alert('Hata', errorMessage);
     }
   };
 
@@ -157,15 +171,7 @@ export default function RegisterScreen({ navigation }: any) {
                 </Text>
               </TouchableOpacity>
 
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>veya</Text>
-                <View style={styles.dividerLine} />
-              </View>
 
-              <TouchableOpacity style={styles.socialButton}>
-                <Text style={styles.socialButtonText}>Google ile Kayıt Ol</Text>
-              </TouchableOpacity>
             </View>
 
             <TouchableOpacity 

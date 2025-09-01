@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,15 @@ import {
   Platform,
   Image,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
-import { mockCategories } from '../data/mockData';
+import * as ImagePicker from 'expo-image-picker';
+import { JobService, Job } from '../services/jobService';
+import { auth } from '../config/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { Timestamp } from 'firebase/firestore';
 
 export default function PostJobScreen({ navigation }: any) {
   const [formData, setFormData] = useState({
@@ -22,21 +29,102 @@ export default function PostJobScreen({ navigation }: any) {
     category: '',
     location: '',
     price: '',
-    date: '',
-    time: '',
+    priceType: 'fixed' as 'fixed' | 'hourly',
+    requirements: '',
     photos: [] as string[],
   });
   const [loading, setLoading] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [searchCategory, setSearchCategory] = useState('');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const addPhoto = () => {
-    // Mock fotoğraf ekleme - gerçek projede kamera/galeri entegrasyonu olacak
-    const mockPhoto = `https://picsum.photos/300/200?random=${Date.now()}`;
-    setFormData(prev => ({
-      ...prev,
-      photos: [...prev.photos, mockPhoto]
-    }));
+  // Kategoriler
+  const categories = [
+    { id: '1', name: 'Temizlik', icon: '🧽' },
+    { id: '2', name: 'Taşıma', icon: '📦' },
+    { id: '3', name: 'Montaj', icon: '🔧' },
+    { id: '4', name: 'Grafik', icon: '🎨' },
+    { id: '5', name: 'Yazılım', icon: '💻' },
+    { id: '6', name: 'Eğitim', icon: '📚' },
+    { id: '7', name: 'Bakım', icon: '⚙️' },
+    { id: '8', name: 'Diğer', icon: '📋' },
+  ];
+
+  // Auth state'i dinle
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (!user) {
+        Alert.alert('Hata', 'İş eklemek için giriş yapmanız gerekiyor!');
+        navigation.navigate('Login');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigation]);
+
+  // Kamera/galeri izinlerini kontrol et
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('İzin Gerekli', 'Fotoğraf seçmek için galeri izni gerekiyor!');
+      return false;
+    }
+    return true;
+  };
+
+  // Fotoğraf seç
+  const pickImage = async () => {
+    if (!(await requestPermissions())) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        setFormData(prev => ({
+          ...prev,
+          photos: [...prev.photos, imageUri]
+        }));
+      }
+    } catch (error) {
+      console.error('Fotoğraf seçme hatası:', error);
+      Alert.alert('Hata', 'Fotoğraf seçilirken bir hata oluştu!');
+    }
+  };
+
+  // Kamera ile fotoğraf çek
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('İzin Gerekli', 'Fotoğraf çekmek için kamera izni gerekiyor!');
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        setFormData(prev => ({
+          ...prev,
+          photos: [...prev.photos, imageUri]
+        }));
+      }
+    } catch (error) {
+      console.error('Fotoğraf çekme hatası:', error);
+      Alert.alert('Hata', 'Fotoğraf çekilirken bir hata oluştu!');
+    }
   };
 
   const removePhoto = (index: number) => {
@@ -48,32 +136,6 @@ export default function PostJobScreen({ navigation }: any) {
 
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;
-    
-    // Saat formatı: 1112 -> 11:12
-    if (field === 'time') {
-      const cleanValue = value.replace(/[^0-9]/g, '');
-      if (cleanValue.length <= 2) {
-        formattedValue = cleanValue;
-      } else if (cleanValue.length <= 4) {
-        formattedValue = cleanValue.slice(0, 2) + ':' + cleanValue.slice(2);
-      } else {
-        formattedValue = cleanValue.slice(0, 2) + ':' + cleanValue.slice(2, 4);
-      }
-    }
-    
-    // Tarih formatı: 11122025 -> 11/12/2025
-    if (field === 'date') {
-      const cleanValue = value.replace(/[^0-9]/g, '');
-      if (cleanValue.length <= 2) {
-        formattedValue = cleanValue;
-      } else if (cleanValue.length <= 4) {
-        formattedValue = cleanValue.slice(0, 2) + '/' + cleanValue.slice(2);
-      } else if (cleanValue.length <= 6) {
-        formattedValue = cleanValue.slice(0, 2) + '/' + cleanValue.slice(2, 4) + '/' + cleanValue.slice(4);
-      } else {
-        formattedValue = cleanValue.slice(0, 2) + '/' + cleanValue.slice(2, 4) + '/' + cleanValue.slice(4, 8);
-      }
-    }
     
     // Fiyat formatı: 1000 -> 1.000
     if (field === 'price') {
@@ -99,33 +161,144 @@ export default function PostJobScreen({ navigation }: any) {
     setSearchCategory('');
   };
 
-  const filteredCategories = mockCategories.filter(cat =>
-    cat.name.toLowerCase().includes(searchCategory.toLowerCase())
-  );
+  // Fotoğrafları Firebase Storage'a yükle
+  const uploadPhotos = async (): Promise<string[]> => {
+    if (formData.photos.length === 0) return [];
 
-  const handleSubmit = () => {
-    const { title, description, category, location, price, date, time } = formData;
-    
-    if (!title || !description || !category || !location || !price || !date || !time) {
-      Alert.alert('Hata', 'Tüm alanları doldurun');
-      return;
+    setUploading(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (let i = 0; i < formData.photos.length; i++) {
+        const photoUri = formData.photos[i];
+        
+        // Local URI'yi blob'a çevir
+        const response = await fetch(photoUri);
+        const blob = await response.blob();
+        
+        // Storage referansı oluştur
+        const photoRef = ref(storage, `jobs/${currentUser?.uid}/${Date.now()}_${i}.jpg`);
+        
+        // Upload
+        await uploadBytes(photoRef, blob);
+        
+        // Download URL al
+        const downloadURL = await getDownloadURL(photoRef);
+        uploadedUrls.push(downloadURL);
+        
+        console.log(`📸 Fotoğraf ${i + 1} yüklendi:`, downloadURL);
+      }
+    } catch (error) {
+      console.error('❌ Fotoğraf yükleme hatası:', error);
+      throw new Error('Fotoğraflar yüklenirken bir hata oluştu!');
+    } finally {
+      setUploading(false);
     }
 
-    // Fiyat validasyonu - nokta ve virgülleri temizle
-    const cleanPrice = price.replace(/[.,]/g, '');
-    if (isNaN(Number(cleanPrice))) {
-      Alert.alert('Hata', 'Fiyat sayısal olmalı');
-      return;
+    return uploadedUrls;
+  };
+
+  // Form validasyonu
+  const validateForm = (): boolean => {
+    if (!formData.title.trim()) {
+      Alert.alert('Hata', 'İş başlığı gereklidir!');
+      return false;
     }
+    if (!formData.description.trim()) {
+      Alert.alert('Hata', 'İş açıklaması gereklidir!');
+      return false;
+    }
+    if (!formData.category) {
+      Alert.alert('Hata', 'Kategori seçimi gereklidir!');
+      return false;
+    }
+    if (!formData.location.trim()) {
+      Alert.alert('Hata', 'Konum bilgisi gereklidir!');
+      return false;
+    }
+    if (!formData.price.trim()) {
+      Alert.alert('Hata', 'Fiyat bilgisi gereklidir!');
+      return false;
+    }
+    if (!currentUser) {
+      Alert.alert('Hata', 'Giriş yapmanız gerekiyor!');
+      return false;
+    }
+    return true;
+  };
+
+  // İşi Firebase'e kaydet
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
 
     setLoading(true);
-    // Mock post job - gerçek projede API'ye gönderilecek
-    setTimeout(() => {
+    
+    try {
+      console.log('🚀 İş kaydediliyor...');
+      
+      // Fotoğrafları yükle
+      const photoUrls = await uploadPhotos();
+      console.log('📸 Fotoğraflar yüklendi:', photoUrls.length);
+      
+      // İş verilerini hazırla
+      const jobData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        category: formData.category,
+        location: formData.location.trim(),
+        price: parseInt(formData.price.replace(/[^0-9]/g, '')),
+        priceType: formData.priceType,
+                 ownerId: currentUser!.uid,
+         employerName: currentUser!.email?.split('@')[0] || 'Bilinmeyen',
+        status: 'active' as const,
+        createdAt: Timestamp.now(),
+        images: photoUrls,
+        requirements: formData.requirements.trim() ? [formData.requirements.trim()] : [],
+
+      };
+
+      console.log('📝 İş verileri hazırlandı:', jobData);
+      
+      // Firebase'e kaydet
+      const jobId = await JobService.createJob(jobData);
+      console.log('✅ İş başarıyla kaydedildi, ID:', jobId);
+      
+      // Başarı mesajı
+      Alert.alert(
+        'Başarılı! 🎉',
+        'İş ilanınız başarıyla yayınlandı!',
+        [
+          {
+            text: 'Tamam',
+            onPress: () => {
+              // Formu temizle
+              setFormData({
+                title: '',
+                description: '',
+                category: '',
+                location: '',
+                price: '',
+                priceType: 'fixed',
+                requirements: '',
+                photos: [],
+              });
+              // Ana sayfaya dön
+              navigation.navigate('Home');
+            }
+          }
+        ]
+      );
+      
+    } catch (error: any) {
+      console.error('❌ İş kaydetme hatası:', error);
+      Alert.alert(
+        'Hata! ❌',
+        'İş kaydedilirken bir hata oluştu: ' + (error.message || 'Bilinmeyen hata'),
+        [{ text: 'Tamam' }]
+      );
+    } finally {
       setLoading(false);
-      Alert.alert('Başarılı', 'İlanınız yayınlandı!', [
-        { text: 'Tamam', onPress: () => navigation.navigate('Home') }
-      ]);
-    }, 1000);
+    }
   };
 
   return (
@@ -192,10 +365,16 @@ export default function PostJobScreen({ navigation }: any) {
                   </View>
                 ))}
                 {formData.photos.length < 5 && (
-                  <TouchableOpacity style={styles.addPhotoButton} onPress={addPhoto}>
-                    <Text style={styles.addPhotoText}>📷</Text>
-                    <Text style={styles.addPhotoLabel}>Fotoğraf Ekle</Text>
-                  </TouchableOpacity>
+                  <View style={styles.photoButtonsContainer}>
+                    <TouchableOpacity style={styles.addPhotoButton} onPress={pickImage}>
+                      <Text style={styles.addPhotoText}>📷</Text>
+                      <Text style={styles.addPhotoLabel}>Galeri'den Seç</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.addPhotoButton} onPress={takePhoto}>
+                      <Text style={styles.addPhotoText}>📱</Text>
+                      <Text style={styles.addPhotoLabel}>Kamera ile Çek</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
               <Text style={styles.photoHint}>
@@ -213,29 +392,33 @@ export default function PostJobScreen({ navigation }: any) {
               />
             </View>
 
-                         <View style={styles.row}>
-               <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                 <Text style={styles.label}>Tarih</Text>
-                                   <TextInput
-                    style={styles.input}
-                    placeholder="12/1/2025"
-                    value={formData.date}
-                    onChangeText={(value) => handleInputChange('date', value)}
-                    keyboardType="numeric"
-                  />
-                 <Text style={styles.inputHint}>Örnek: 12/1/2025</Text>
-               </View>
-
-               <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                 <Text style={styles.label}>Saat</Text>
-                                   <TextInput
-                    style={styles.input}
-                    placeholder="11:25"
-                    value={formData.time}
-                    onChangeText={(value) => handleInputChange('time', value)}
-                    keyboardType="numeric"
-                  />
-                 <Text style={styles.inputHint}>Örnek: 11:25</Text>
+                                      <View style={styles.inputGroup}>
+               <Text style={styles.label}>Fiyat Türü</Text>
+               <View style={styles.priceTypeContainer}>
+                 <TouchableOpacity
+                   style={[
+                     styles.priceTypeButton,
+                     formData.priceType === 'fixed' && styles.priceTypeButtonActive
+                   ]}
+                   onPress={() => setFormData(prev => ({ ...prev, priceType: 'fixed' }))}
+                 >
+                   <Text style={[
+                     styles.priceTypeButtonText,
+                     formData.priceType === 'fixed' && styles.priceTypeButtonTextActive
+                   ]}>Sabit</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity
+                   style={[
+                     styles.priceTypeButton,
+                     formData.priceType === 'hourly' && styles.priceTypeButtonActive
+                   ]}
+                   onPress={() => setFormData(prev => ({ ...prev, priceType: 'hourly' }))}
+                 >
+                   <Text style={[
+                     styles.priceTypeButtonText,
+                     formData.priceType === 'hourly' && styles.priceTypeButtonTextActive
+                   ]}>Saatlik</Text>
+                 </TouchableOpacity>
                </View>
              </View>
 
@@ -290,7 +473,7 @@ export default function PostJobScreen({ navigation }: any) {
               />
               
               <ScrollView style={styles.categoriesList}>
-                {filteredCategories.map((category) => (
+                {categories.map((category) => (
                   <TouchableOpacity
                     key={category.id}
                     style={styles.categoryItem}
@@ -579,6 +762,42 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     fontWeight: '500',
   },
+     noCategoriesText: {
+     textAlign: 'center',
+     paddingVertical: 20,
+     color: '#6B7280',
+   },
+   priceTypeContainer: {
+     flexDirection: 'row',
+     gap: 10,
+   },
+   priceTypeButton: {
+     flex: 1,
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+     borderRadius: 8,
+     borderWidth: 1,
+     borderColor: '#E5E7EB',
+     backgroundColor: '#FFFFFF',
+     alignItems: 'center',
+   },
+   priceTypeButtonActive: {
+     backgroundColor: '#2563EB',
+     borderColor: '#2563EB',
+   },
+   priceTypeButtonText: {
+     fontSize: 14,
+     fontWeight: '500',
+     color: '#6B7280',
+   },
+   priceTypeButtonTextActive: {
+     color: '#FFFFFF',
+   },
+   photoButtonsContainer: {
+     flexDirection: 'row',
+     gap: 10,
+     marginTop: 10,
+   },
 });
 
 
