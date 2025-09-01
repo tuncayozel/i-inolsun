@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "653698538472",
+    "firebase_url": "https://isinolsun-5aa3f-default-rtdb.firebaseio.com",
+    "project_id": "isinolsun-5aa3f",
+    "storage_bucket": "isinolsun-5aa3f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:653698538472:android:e2ecb937bf24f521e2a25d",
+        "android_client_info": {
+          "package_name": "com.isinolsun"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "653698538472-d1tkk64svjte9cn4g4thp6l65es9gouk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbXE8wdDyaipQwS5ZbfIeWHWwtO9P1qiA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "653698538472-d1tkk64svjte9cn4g4thp6l65es9gouk.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
