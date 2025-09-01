@@ -9,6 +9,7 @@ import {
   Alert,
   Image,
   Modal,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatPrice } from '../data/mockData';
@@ -25,7 +26,29 @@ export default function ProfileScreen({ navigation }: any) {
     completedJobs: 12,
     totalEarnings: 2500,
     activeJobs: 3,
-    skills: ['Ev Temizliği', 'Bahçe Bakımı', 'Temizlik'],
+    skills: [
+      { 
+        name: 'Ev Temizliği', 
+        level: 'advanced', 
+        experience: '5+ yıl',
+        description: 'Profesyonel ev temizliği hizmetleri',
+        certificates: ['Temizlik Sertifikası', 'Sağlık Belgesi']
+      },
+      { 
+        name: 'Bahçe Bakımı', 
+        level: 'intermediate', 
+        experience: '3 yıl',
+        description: 'Bahçe düzenleme ve bitki bakımı',
+        certificates: ['Bahçe Bakım Sertifikası']
+      },
+      { 
+        name: 'Temizlik', 
+        level: 'beginner', 
+        experience: '1 yıl',
+        description: 'Genel temizlik hizmetleri',
+        certificates: []
+      }
+    ],
     phone: '0532 123 45 67',
     profileImage: null, // Profil fotoğrafı
     // Gelişmiş istatistikler
@@ -45,6 +68,7 @@ export default function ProfileScreen({ navigation }: any) {
 
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showSkillsModal, setShowSkillsModal] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   useFocusEffect(
@@ -210,6 +234,34 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
+  // Beceri yönetimi fonksiyonları
+  const getLevelColor = (level: string) => {
+    switch (level) {
+      case 'beginner': return '#10B981'; // Yeşil
+      case 'intermediate': return '#F59E0B'; // Turuncu
+      case 'advanced': return '#EF4444'; // Kırmızı
+      default: return '#6B7280';
+    }
+  };
+
+  const getLevelText = (level: string) => {
+    switch (level) {
+      case 'beginner': return 'Başlangıç';
+      case 'intermediate': return 'Orta';
+      case 'advanced': return 'İleri';
+      default: return 'Bilinmiyor';
+    }
+  };
+
+  const getLevelIcon = (level: string) => {
+    switch (level) {
+      case 'beginner': return '🌱';
+      case 'intermediate': return '🌿';
+      case 'advanced': return '🌳';
+      default: return '❓';
+    }
+  };
+
   const menuItems = [
     { icon: '⚙️', title: 'Ayarlar', onPress: handleSettings },
     { icon: '📋', title: 'İş Geçmişi', onPress: () => navigation.navigate('MyJobs') },
@@ -367,11 +419,48 @@ export default function ProfileScreen({ navigation }: any) {
 
         {/* Skills */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Yetenekler</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Yetenekler</Text>
+            <TouchableOpacity 
+              style={styles.addSkillButton}
+              onPress={() => setShowSkillsModal(true)}
+            >
+              <Text style={styles.addSkillButtonText}>+ Ekle</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.skillsContainer}>
             {user.skills.map((skill, index) => (
-              <View key={index} style={styles.skillTag}>
-                <Text style={styles.skillText}>{skill}</Text>
+              <View key={index} style={styles.skillCard}>
+                <View style={styles.skillHeader}>
+                  <View style={styles.skillInfo}>
+                    <Text style={styles.skillName}>{skill.name}</Text>
+                    <View style={styles.skillLevelContainer}>
+                      <Text style={styles.skillLevelIcon}>
+                        {getLevelIcon(skill.level)}
+                      </Text>
+                      <Text style={[
+                        styles.skillLevelText,
+                        { color: getLevelColor(skill.level) }
+                      ]}>
+                        {getLevelText(skill.level)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.skillExperience}>{skill.experience}</Text>
+                </View>
+                
+                <Text style={styles.skillDescription}>{skill.description}</Text>
+                
+                {skill.certificates.length > 0 && (
+                  <View style={styles.certificatesContainer}>
+                    <Text style={styles.certificatesTitle}>Sertifikalar:</Text>
+                    {skill.certificates.map((cert, certIndex) => (
+                      <View key={certIndex} style={styles.certificateTag}>
+                        <Text style={styles.certificateText}>📜 {cert}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             ))}
           </View>
@@ -443,52 +532,131 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* Fotoğraf Büyütme Modal */}
-      <Modal
-        visible={showImageModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowImageModal(false)}
-      >
-        <View style={styles.imageModalOverlay}>
-          <TouchableOpacity 
-            style={styles.imageModalCloseButton}
-            onPress={() => setShowImageModal(false)}
-          >
-            <Text style={styles.imageModalCloseText}>✕</Text>
-          </TouchableOpacity>
-          
-          <Image 
-            source={{ uri: user.profileImage }} 
-            style={styles.imageModalImage}
-            resizeMode="contain"
-          />
-          
-          <View style={styles.imageModalActions}>
-            <TouchableOpacity 
-              style={styles.imageModalActionButton}
-              onPress={() => {
-                setShowImageModal(false);
-                setShowImagePicker(true);
-              }}
-            >
-              <Text style={styles.imageModalActionIcon}>📸</Text>
-              <Text style={styles.imageModalActionText}>Değiştir</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.imageModalActionButton}
-              onPress={() => {
-                setShowImageModal(false);
-                removeProfileImage();
-              }}
-            >
-              <Text style={styles.imageModalActionIcon}>🗑️</Text>
-              <Text style={styles.imageModalActionText}>Sil</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+             {/* Fotoğraf Büyütme Modal */}
+       <Modal
+         visible={showImageModal}
+         transparent={true}
+         animationType="fade"
+         onRequestClose={() => setShowImageModal(false)}
+       >
+         <View style={styles.imageModalOverlay}>
+           <TouchableOpacity 
+             style={styles.imageModalCloseButton}
+             onPress={() => setShowImageModal(false)}
+           >
+             <Text style={styles.imageModalCloseText}>✕</Text>
+           </TouchableOpacity>
+           
+           <Image 
+             source={{ uri: user.profileImage }} 
+             style={styles.imageModalImage}
+             resizeMode="contain"
+           />
+           
+           <View style={styles.imageModalActions}>
+             <TouchableOpacity 
+               style={styles.imageModalActionButton}
+               onPress={() => {
+                 setShowImageModal(false);
+                 setShowImagePicker(true);
+               }}
+             >
+               <Text style={styles.imageModalActionIcon}>📸</Text>
+               <Text style={styles.imageModalActionText}>Değiştir</Text>
+             </TouchableOpacity>
+             
+             <TouchableOpacity 
+               style={styles.imageModalActionButton}
+               onPress={() => {
+                 setShowImageModal(false);
+                 removeProfileImage();
+               }}
+             >
+               <Text style={styles.imageModalActionIcon}>🗑️</Text>
+               <Text style={styles.imageModalActionText}>Sil</Text>
+             </TouchableOpacity>
+           </View>
+         </View>
+       </Modal>
+
+       {/* Beceri Ekleme Modal */}
+       <Modal
+         visible={showSkillsModal}
+         transparent={true}
+         animationType="slide"
+         onRequestClose={() => setShowSkillsModal(false)}
+       >
+         <View style={styles.modalOverlay}>
+           <View style={styles.modalContent}>
+             <Text style={styles.modalTitle}>Yeni Beceri Ekle</Text>
+             
+             <View style={styles.skillFormContainer}>
+               <Text style={styles.formLabel}>Beceri Adı</Text>
+               <TextInput
+                 style={styles.formInput}
+                 placeholder="Örn: Ev Temizliği"
+                 placeholderTextColor="#9CA3AF"
+               />
+               
+               <Text style={styles.formLabel}>Deneyim Seviyesi</Text>
+               <View style={styles.levelSelector}>
+                 {['beginner', 'intermediate', 'advanced'].map((level) => (
+                   <TouchableOpacity
+                     key={level}
+                     style={[
+                       styles.levelOption,
+                       { borderColor: getLevelColor(level) }
+                     ]}
+                   >
+                     <Text style={styles.levelOptionIcon}>
+                       {getLevelIcon(level)}
+                     </Text>
+                     <Text style={styles.levelOptionText}>
+                       {getLevelText(level)}
+                     </Text>
+                   </TouchableOpacity>
+                 ))}
+               </View>
+               
+               <Text style={styles.formLabel}>Deneyim Süresi</Text>
+               <TextInput
+                 style={styles.formInput}
+                 placeholder="Örn: 3 yıl"
+                 placeholderTextColor="#9CA3AF"
+               />
+               
+               <Text style={styles.formLabel}>Açıklama</Text>
+               <TextInput
+                 style={styles.formTextArea}
+                 placeholder="Beceri hakkında detaylı açıklama..."
+                 placeholderTextColor="#9CA3AF"
+                 multiline
+                 numberOfLines={3}
+               />
+             </View>
+             
+             <View style={styles.modalButtons}>
+               <TouchableOpacity 
+                 style={styles.modalCancelButton} 
+                 onPress={() => setShowSkillsModal(false)}
+               >
+                 <Text style={styles.modalCancelText}>İptal</Text>
+               </TouchableOpacity>
+               
+               <TouchableOpacity 
+                 style={styles.modalSaveButton} 
+                 onPress={() => {
+                   // Beceri ekleme işlemi burada yapılacak
+                   setShowSkillsModal(false);
+                   Alert.alert('Başarılı', 'Yeni beceri eklendi!');
+                 }}
+               >
+                 <Text style={styles.modalSaveText}>Ekle</Text>
+               </TouchableOpacity>
+             </View>
+           </View>
+         </View>
+       </Modal>
     </SafeAreaView>
   );
 }
@@ -844,6 +1012,79 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '500',
   },
+  // Beceri ekleme modal stilleri
+  skillFormContainer: {
+    gap: 16,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  formInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#1F2937',
+  },
+  formTextArea: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#1F2937',
+    textAlignVertical: 'top',
+    minHeight: 80,
+  },
+  levelSelector: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  levelOption: {
+    flex: 1,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  levelOptionIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  levelOptionText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  modalSaveButton: {
+    flex: 1,
+    backgroundColor: '#2563EB',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalSaveText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
   // Fotoğraf büyütme modal stilleri
   imageModalOverlay: {
     flex: 1,
@@ -908,23 +1149,103 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginBottom: 12,
   },
-  skillsContainer: {
+  // Beceri stilleri
+  sectionHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addSkillButton: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  addSkillButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  skillsContainer: {
+    gap: 12,
+  },
+  skillCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  skillHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  skillInfo: {
+    flex: 1,
+  },
+  skillName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  skillLevelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  skillLevelIcon: {
+    fontSize: 14,
+  },
+  skillLevelText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  skillExperience: {
+    fontSize: 12,
+    color: '#6B7280',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  skillDescription: {
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  certificatesContainer: {
     gap: 8,
   },
-  skillTag: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
+  certificatesTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
   },
-  skillText: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '500',
+  certificateTag: {
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  certificateText: {
+    fontSize: 12,
+    color: '#065F46',
   },
   bio: {
     fontSize: 14,
