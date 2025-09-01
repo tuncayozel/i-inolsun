@@ -146,6 +146,83 @@ export default function ProfileScreen({ navigation }: any) {
     ]
   });
 
+  // Profil önerileri sistemi state'leri
+  const [showRecommendationsModal, setShowRecommendationsModal] = useState(false);
+  const [recommendations, setRecommendations] = useState([
+    {
+      id: 1,
+      type: 'profile_completion',
+      title: 'Profil Tamamlama',
+      description: 'Profilinizi %100 tamamlayarak daha fazla iş fırsatı yakalayın',
+      priority: 'high',
+      completed: false,
+      action: 'Profil Düzenle',
+      icon: '📝',
+      progress: 75,
+      benefits: ['%40 daha fazla iş teklifi', 'Güvenilirlik artışı', 'Öncelikli görünüm']
+    },
+    {
+      id: 2,
+      type: 'verification',
+      title: 'Profil Doğrulama',
+      description: 'Belgelerinizi doğrulayarak güven rozeti kazanın',
+      priority: 'high',
+      completed: false,
+      action: 'Doğrula',
+      icon: '🔒',
+      progress: 45,
+      benefits: ['Güven rozeti', 'Yüksek ücretli işler', 'Öncelik sırası']
+    },
+    {
+      id: 3,
+      type: 'skills',
+      title: 'Yetenek Ekleme',
+      description: 'En az 5 yetenek ekleyerek uzmanlığınızı gösterin',
+      priority: 'medium',
+      completed: false,
+      action: 'Yetenek Ekle',
+      icon: '🎯',
+      progress: 60,
+      benefits: ['Daha fazla kategori', 'Uzman görünümü', 'Fiyat artışı']
+    },
+    {
+      id: 4,
+      type: 'portfolio',
+      title: 'Portföy Oluşturma',
+      description: 'Tamamladığınız işleri portföyünüze ekleyin',
+      priority: 'medium',
+      completed: false,
+      action: 'Portföy Ekle',
+      icon: '📁',
+      progress: 30,
+      benefits: ['Müşteri güveni', 'Referans sistemi', 'İş kalitesi']
+    },
+    {
+      id: 5,
+      type: 'bio',
+      title: 'Hakkında Bölümü',
+      description: 'Kendinizi tanıtan bir biyografi yazın',
+      priority: 'low',
+      completed: false,
+      action: 'Biyografi Ekle',
+      icon: '✍️',
+      progress: 0,
+      benefits: ['Kişisel bağlantı', 'Profesyonel görünüm', 'Güven artışı']
+    },
+    {
+      id: 6,
+      type: 'photos',
+      title: 'İş Fotoğrafları',
+      description: 'Tamamladığınız işlerin fotoğraflarını ekleyin',
+      priority: 'low',
+      completed: false,
+      action: 'Fotoğraf Ekle',
+      icon: '📷',
+      progress: 20,
+      benefits: ['Görsel kanıt', 'Müşteri memnuniyeti', 'Portföy zenginliği']
+    }
+  ]);
+
 
 
   useFocusEffect(
@@ -474,6 +551,70 @@ export default function ProfileScreen({ navigation }: any) {
     return 'bronze';
   };
 
+  // Profil önerileri sistemi fonksiyonları
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return '#EF4444'; // Kırmızı
+      case 'medium': return '#F59E0B'; // Turuncu
+      case 'low': return '#10B981'; // Yeşil
+      default: return '#6B7280';
+    }
+  };
+
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case 'high': return '🔥';
+      case 'medium': return '⚡';
+      case 'low': return '💡';
+      default: return '❓';
+    }
+  };
+
+  const handleRecommendationAction = (recommendation: any) => {
+    switch (recommendation.type) {
+      case 'profile_completion':
+        navigation.navigate('ProfileEdit');
+        break;
+      case 'verification':
+        setShowVerificationModal(true);
+        break;
+      case 'skills':
+        setShowSkillsModal(true);
+        break;
+      case 'portfolio':
+        setShowPortfolioModal(true);
+        break;
+      case 'bio':
+        navigation.navigate('ProfileEdit');
+        break;
+      case 'photos':
+        setShowPortfolioModal(true);
+        break;
+      default:
+        Alert.alert('Bilgi', 'Bu özellik geliştirilme aşamasında...');
+    }
+    setShowRecommendationsModal(false);
+  };
+
+  const calculateOverallProgress = () => {
+    const totalProgress = recommendations.reduce((sum, rec) => sum + rec.progress, 0);
+    return Math.round(totalProgress / recommendations.length);
+  };
+
+  const getCompletedRecommendationsCount = () => {
+    return recommendations.filter(rec => rec.progress >= 100).length;
+  };
+
+  const getNextRecommendation = () => {
+    return recommendations
+      .filter(rec => rec.progress < 100)
+      .sort((a, b) => {
+        if (a.priority === 'high' && b.priority !== 'high') return -1;
+        if (a.priority === 'medium' && b.priority === 'low') return -1;
+        return b.progress - a.progress;
+      })[0];
+  };
+
 
 
   const menuItems = [
@@ -565,17 +706,100 @@ export default function ProfileScreen({ navigation }: any) {
            </View>
          </View>
 
-         {/* Profil Doğrulama Kartı */}
-         <View style={styles.section}>
-           <View style={styles.sectionHeader}>
-             <Text style={styles.sectionTitle}>🔒 Profil Doğrulama</Text>
-             <TouchableOpacity 
-               style={styles.verificationButton}
-               onPress={() => setShowVerificationModal(true)}
-             >
-               <Text style={styles.verificationButtonText}>Doğrula</Text>
-             </TouchableOpacity>
-           </View>
+                   {/* Profil Önerileri Kartı */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>💡 Profil Önerileri</Text>
+              <TouchableOpacity 
+                style={styles.recommendationsButton}
+                onPress={() => setShowRecommendationsModal(true)}
+              >
+                <Text style={styles.recommendationsButtonText}>Tümünü Gör</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.recommendationsCard}>
+              <View style={styles.recommendationsHeader}>
+                <View style={styles.recommendationsProgressContainer}>
+                  <Text style={styles.recommendationsProgressText}>
+                    {calculateOverallProgress()}% Tamamlandı
+                  </Text>
+                  <View style={styles.recommendationsProgressBar}>
+                    <View 
+                      style={[
+                        styles.recommendationsProgressFill, 
+                        { width: `${calculateOverallProgress()}%` }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.recommendationsProgressSubtext}>
+                    {getCompletedRecommendationsCount()}/{recommendations.length} öneri tamamlandı
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.recommendationsQuickActions}>
+                <Text style={styles.recommendationsQuickTitle}>Sonraki Adım:</Text>
+                {(() => {
+                  const nextRec = getNextRecommendation();
+                  if (nextRec) {
+                    return (
+                      <TouchableOpacity 
+                        style={styles.recommendationsQuickAction}
+                        onPress={() => handleRecommendationAction(nextRec)}
+                      >
+                        <Text style={styles.recommendationsQuickIcon}>{nextRec.icon}</Text>
+                        <View style={styles.recommendationsQuickInfo}>
+                          <Text style={styles.recommendationsQuickTitle}>{nextRec.title}</Text>
+                          <Text style={styles.recommendationsQuickDescription}>{nextRec.description}</Text>
+                        </View>
+                        <Text style={styles.recommendationsQuickArrow}>›</Text>
+                      </TouchableOpacity>
+                    );
+                  }
+                  return (
+                    <View style={styles.recommendationsCompleted}>
+                      <Text style={styles.recommendationsCompletedIcon}>🎉</Text>
+                      <Text style={styles.recommendationsCompletedText}>Tüm öneriler tamamlandı!</Text>
+                    </View>
+                  );
+                })()}
+              </View>
+              
+              <View style={styles.recommendationsStats}>
+                <View style={styles.recommendationsStatItem}>
+                  <Text style={styles.recommendationsStatNumber}>
+                    {recommendations.filter(r => r.priority === 'high').length}
+                  </Text>
+                  <Text style={styles.recommendationsStatLabel}>Yüksek Öncelik</Text>
+                </View>
+                <View style={styles.recommendationsStatItem}>
+                  <Text style={styles.recommendationsStatNumber}>
+                    {recommendations.filter(r => r.priority === 'medium').length}
+                  </Text>
+                  <Text style={styles.recommendationsStatLabel}>Orta Öncelik</Text>
+                </View>
+                <View style={styles.recommendationsStatItem}>
+                  <Text style={styles.recommendationsStatNumber}>
+                    {recommendations.filter(r => r.priority === 'low').length}
+                  </Text>
+                  <Text style={styles.recommendationsStatLabel}>Düşük Öncelik</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Profil Doğrulama Kartı */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🔒 Profil Doğrulama</Text>
+              <TouchableOpacity 
+                style={styles.verificationButton}
+                onPress={() => setShowVerificationModal(true)}
+              >
+                <Text style={styles.verificationButtonText}>Doğrula</Text>
+              </TouchableOpacity>
+            </View>
            
            <View style={styles.verificationCard}>
              <View style={styles.verificationHeader}>
@@ -1431,13 +1655,138 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
           </Modal>
 
-          {/* Profil Doğrulama Modal */}
-          <Modal
-            visible={showVerificationModal}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setShowVerificationModal(false)}
-          >
+                     {/* Profil Önerileri Modal */}
+           <Modal
+             visible={showRecommendationsModal}
+             transparent={true}
+             animationType="slide"
+             onRequestClose={() => setShowRecommendationsModal(false)}
+           >
+             <View style={styles.modalOverlay}>
+               <View style={styles.recommendationsModalContent}>
+                 <Text style={styles.modalTitle}>💡 Profil Geliştirme Önerileri</Text>
+                 
+                 <ScrollView 
+                   style={styles.recommendationsFormScrollView}
+                   showsVerticalScrollIndicator={true}
+                   contentContainerStyle={styles.recommendationsFormScrollContent}
+                 >
+                   <View style={styles.recommendationsFormContainer}>
+                     {/* Genel İlerleme */}
+                     <View style={styles.recommendationsOverallProgress}>
+                       <Text style={styles.recommendationsOverallTitle}>Genel İlerleme</Text>
+                       <View style={styles.recommendationsOverallBar}>
+                         <View 
+                           style={[
+                             styles.recommendationsOverallFill, 
+                             { width: `${calculateOverallProgress()}%` }
+                           ]} 
+                         />
+                       </View>
+                       <Text style={styles.recommendationsOverallText}>
+                         {calculateOverallProgress()}% Tamamlandı
+                       </Text>
+                       <Text style={styles.recommendationsOverallSubtext}>
+                         {getCompletedRecommendationsCount()}/{recommendations.length} öneri tamamlandı
+                       </Text>
+                     </View>
+
+                     {/* Öneriler Listesi */}
+                     <Text style={styles.recommendationsListTitle}>Öneriler</Text>
+                     <View style={styles.recommendationsList}>
+                       {recommendations.map((recommendation) => (
+                         <View key={recommendation.id} style={styles.recommendationItem}>
+                           <View style={styles.recommendationHeader}>
+                             <View style={styles.recommendationIconContainer}>
+                               <Text style={styles.recommendationIcon}>{recommendation.icon}</Text>
+                               <View style={[
+                                 styles.recommendationPriority,
+                                 { backgroundColor: getPriorityColor(recommendation.priority) }
+                               ]}>
+                                 <Text style={styles.recommendationPriorityIcon}>
+                                   {getPriorityIcon(recommendation.priority)}
+                                 </Text>
+                               </View>
+                             </View>
+                             
+                             <View style={styles.recommendationInfo}>
+                               <Text style={styles.recommendationTitle}>{recommendation.title}</Text>
+                               <Text style={styles.recommendationDescription}>{recommendation.description}</Text>
+                               
+                               <View style={styles.recommendationProgressContainer}>
+                                 <View style={styles.recommendationProgressBar}>
+                                   <View 
+                                     style={[
+                                       styles.recommendationProgressFill, 
+                                       { width: `${recommendation.progress}%` }
+                                     ]} 
+                                   />
+                                 </View>
+                                 <Text style={styles.recommendationProgressText}>
+                                   {recommendation.progress}%
+                                 </Text>
+                               </View>
+                             </View>
+                           </View>
+                           
+                           <View style={styles.recommendationBenefits}>
+                             <Text style={styles.recommendationBenefitsTitle}>Faydalar:</Text>
+                             {recommendation.benefits.map((benefit, index) => (
+                               <Text key={index} style={styles.recommendationBenefitItem}>• {benefit}</Text>
+                             ))}
+                           </View>
+                           
+                           <TouchableOpacity 
+                             style={[
+                               styles.recommendationActionButton,
+                               recommendation.progress >= 100 && styles.recommendationActionButtonCompleted
+                             ]}
+                             onPress={() => handleRecommendationAction(recommendation)}
+                             disabled={recommendation.progress >= 100}
+                           >
+                             <Text style={[
+                               styles.recommendationActionText,
+                               recommendation.progress >= 100 && styles.recommendationActionTextCompleted
+                             ]}>
+                               {recommendation.progress >= 100 ? '✅ Tamamlandı' : recommendation.action}
+                             </Text>
+                           </TouchableOpacity>
+                         </View>
+                       ))}
+                     </View>
+
+                     {/* İpuçları */}
+                     <View style={styles.recommendationsTips}>
+                       <Text style={styles.recommendationsTipsTitle}>💡 İpuçları</Text>
+                       <Text style={styles.recommendationsTipsText}>
+                         • Yüksek öncelikli önerileri önce tamamlayın{'\n'}
+                         • Her öneri tamamlandığında profil puanınız artar{'\n'}
+                         • Tam profil ile %40 daha fazla iş teklifi alırsınız{'\n'}
+                         • Doğrulanmış profiller öncelikli görünür
+                       </Text>
+                     </View>
+                   </View>
+                 </ScrollView>
+                 
+                 <View style={styles.modalButtons}>
+                   <TouchableOpacity 
+                     style={styles.modalCancelButton} 
+                     onPress={() => setShowRecommendationsModal(false)}
+                   >
+                     <Text style={styles.modalCancelText}>Kapat</Text>
+                   </TouchableOpacity>
+                 </View>
+               </View>
+             </View>
+           </Modal>
+
+           {/* Profil Doğrulama Modal */}
+           <Modal
+             visible={showVerificationModal}
+             transparent={true}
+             animationType="slide"
+             onRequestClose={() => setShowVerificationModal(false)}
+           >
             <View style={styles.modalOverlay}>
               <View style={styles.verificationModalContent}>
                 <Text style={styles.modalTitle}>🔒 Profil Doğrulama</Text>
@@ -3028,6 +3377,343 @@ const styles = StyleSheet.create({
          verificationBenefitItem: {
        fontSize: 14,
        color: '#1E40AF',
+       lineHeight: 20,
+     },
+
+     // Profil önerileri sistemi stilleri
+     recommendationsButton: {
+       backgroundColor: '#8B5CF6',
+       paddingHorizontal: 16,
+       paddingVertical: 8,
+       borderRadius: 20,
+     },
+     recommendationsButtonText: {
+       color: '#FFFFFF',
+       fontSize: 14,
+       fontWeight: '600',
+     },
+     recommendationsCard: {
+       backgroundColor: '#FFFFFF',
+       borderRadius: 16,
+       padding: 20,
+       shadowColor: '#000',
+       shadowOffset: {
+         width: 0,
+         height: 2,
+       },
+       shadowOpacity: 0.1,
+       shadowRadius: 8,
+       elevation: 4,
+       borderWidth: 1,
+       borderColor: '#F0F0F0',
+     },
+     recommendationsHeader: {
+       marginBottom: 20,
+     },
+     recommendationsProgressContainer: {
+       alignItems: 'center',
+       marginBottom: 16,
+     },
+     recommendationsProgressText: {
+       fontSize: 18,
+       fontWeight: 'bold',
+       color: '#1F2937',
+       marginBottom: 8,
+     },
+     recommendationsProgressBar: {
+       width: '100%',
+       height: 8,
+       backgroundColor: '#F3F4F6',
+       borderRadius: 4,
+       marginBottom: 8,
+       overflow: 'hidden',
+     },
+     recommendationsProgressFill: {
+       height: '100%',
+       backgroundColor: '#8B5CF6',
+       borderRadius: 4,
+     },
+     recommendationsProgressSubtext: {
+       fontSize: 14,
+       color: '#6B7280',
+     },
+     recommendationsQuickActions: {
+       marginBottom: 20,
+     },
+     recommendationsQuickTitle: {
+       fontSize: 16,
+       fontWeight: '600',
+       color: '#1F2937',
+       marginBottom: 12,
+     },
+     recommendationsQuickAction: {
+       flexDirection: 'row',
+       alignItems: 'center',
+       padding: 16,
+       backgroundColor: '#F8FAFC',
+       borderRadius: 12,
+       borderWidth: 1,
+       borderColor: '#E2E8F0',
+     },
+     recommendationsQuickIcon: {
+       fontSize: 24,
+       marginRight: 12,
+     },
+     recommendationsQuickInfo: {
+       flex: 1,
+     },
+     recommendationsQuickTitle: {
+       fontSize: 16,
+       fontWeight: '600',
+       color: '#1F2937',
+       marginBottom: 4,
+     },
+     recommendationsQuickDescription: {
+       fontSize: 14,
+       color: '#6B7280',
+       lineHeight: 20,
+     },
+     recommendationsQuickArrow: {
+       fontSize: 20,
+       color: '#8B5CF6',
+       fontWeight: 'bold',
+     },
+     recommendationsCompleted: {
+       alignItems: 'center',
+       padding: 20,
+       backgroundColor: '#F0FDF4',
+       borderRadius: 12,
+       borderWidth: 1,
+       borderColor: '#D1FAE5',
+     },
+     recommendationsCompletedIcon: {
+       fontSize: 32,
+       marginBottom: 8,
+     },
+     recommendationsCompletedText: {
+       fontSize: 16,
+       fontWeight: '600',
+       color: '#065F46',
+       textAlign: 'center',
+     },
+     recommendationsStats: {
+       flexDirection: 'row',
+       justifyContent: 'space-around',
+     },
+     recommendationsStatItem: {
+       alignItems: 'center',
+     },
+     recommendationsStatNumber: {
+       fontSize: 20,
+       fontWeight: 'bold',
+       color: '#8B5CF6',
+       marginBottom: 4,
+     },
+     recommendationsStatLabel: {
+       fontSize: 12,
+       color: '#6B7280',
+       textAlign: 'center',
+     },
+     // Profil önerileri modal stilleri
+     recommendationsModalContent: {
+       backgroundColor: '#FFFFFF',
+       borderRadius: 16,
+       padding: 24,
+       width: '90%',
+       maxWidth: 350,
+       maxHeight: '85%',
+       shadowColor: '#000',
+       shadowOffset: {
+         width: 0,
+         height: 4,
+       },
+       shadowOpacity: 0.25,
+       shadowRadius: 8,
+       elevation: 8,
+     },
+     recommendationsFormScrollView: {
+       maxHeight: 450,
+       marginBottom: 20,
+     },
+     recommendationsFormScrollContent: {
+       paddingBottom: 10,
+     },
+     recommendationsFormContainer: {
+       gap: 20,
+     },
+     recommendationsOverallProgress: {
+       alignItems: 'center',
+       padding: 20,
+       backgroundColor: '#F8FAFC',
+       borderRadius: 12,
+       borderWidth: 1,
+       borderColor: '#E2E8F0',
+     },
+     recommendationsOverallTitle: {
+       fontSize: 18,
+       fontWeight: 'bold',
+       color: '#1F2937',
+       marginBottom: 16,
+     },
+     recommendationsOverallBar: {
+       width: '100%',
+       height: 12,
+       backgroundColor: '#F3F4F6',
+       borderRadius: 6,
+       marginBottom: 12,
+       overflow: 'hidden',
+     },
+     recommendationsOverallFill: {
+       height: '100%',
+       backgroundColor: '#8B5CF6',
+       borderRadius: 6,
+     },
+     recommendationsOverallText: {
+       fontSize: 20,
+       fontWeight: 'bold',
+       color: '#8B5CF6',
+       marginBottom: 4,
+     },
+     recommendationsOverallSubtext: {
+       fontSize: 14,
+       color: '#6B7280',
+     },
+     recommendationsListTitle: {
+       fontSize: 18,
+       fontWeight: 'bold',
+       color: '#1F2937',
+       marginBottom: 16,
+     },
+     recommendationsList: {
+       gap: 16,
+     },
+     recommendationItem: {
+       backgroundColor: '#FFFFFF',
+       borderRadius: 12,
+       padding: 16,
+       borderWidth: 1,
+       borderColor: '#E5E7EB',
+       shadowColor: '#000',
+       shadowOffset: {
+         width: 0,
+         height: 1,
+       },
+       shadowOpacity: 0.05,
+       shadowRadius: 2,
+       elevation: 1,
+     },
+     recommendationHeader: {
+       flexDirection: 'row',
+       marginBottom: 16,
+       gap: 12,
+     },
+     recommendationIconContainer: {
+       position: 'relative',
+     },
+     recommendationIcon: {
+       fontSize: 32,
+     },
+     recommendationPriority: {
+       position: 'absolute',
+       top: -4,
+       right: -4,
+       width: 20,
+       height: 20,
+       borderRadius: 10,
+       justifyContent: 'center',
+       alignItems: 'center',
+     },
+     recommendationPriorityIcon: {
+       fontSize: 12,
+       color: '#FFFFFF',
+     },
+     recommendationInfo: {
+       flex: 1,
+     },
+     recommendationTitle: {
+       fontSize: 16,
+       fontWeight: '600',
+       color: '#1F2937',
+       marginBottom: 4,
+     },
+     recommendationDescription: {
+       fontSize: 14,
+       color: '#6B7280',
+       lineHeight: 20,
+       marginBottom: 12,
+     },
+     recommendationProgressContainer: {
+       flexDirection: 'row',
+       alignItems: 'center',
+       gap: 8,
+     },
+     recommendationProgressBar: {
+       flex: 1,
+       height: 6,
+       backgroundColor: '#F3F4F6',
+       borderRadius: 3,
+       overflow: 'hidden',
+     },
+     recommendationProgressFill: {
+       height: '100%',
+       backgroundColor: '#8B5CF6',
+       borderRadius: 3,
+     },
+     recommendationProgressText: {
+       fontSize: 12,
+       fontWeight: '600',
+       color: '#8B5CF6',
+       minWidth: 30,
+     },
+     recommendationBenefits: {
+       marginBottom: 16,
+     },
+     recommendationBenefitsTitle: {
+       fontSize: 14,
+       fontWeight: '600',
+       color: '#1F2937',
+       marginBottom: 8,
+     },
+     recommendationBenefitItem: {
+       fontSize: 12,
+       color: '#6B7280',
+       lineHeight: 18,
+       marginBottom: 4,
+     },
+     recommendationActionButton: {
+       backgroundColor: '#8B5CF6',
+       paddingVertical: 12,
+       paddingHorizontal: 16,
+       borderRadius: 8,
+       alignItems: 'center',
+     },
+     recommendationActionButtonCompleted: {
+       backgroundColor: '#10B981',
+     },
+     recommendationActionText: {
+       color: '#FFFFFF',
+       fontSize: 14,
+       fontWeight: '600',
+     },
+     recommendationActionTextCompleted: {
+       color: '#FFFFFF',
+     },
+     recommendationsTips: {
+       backgroundColor: '#FEF3C7',
+       borderRadius: 12,
+       padding: 16,
+       borderWidth: 1,
+       borderColor: '#FDE68A',
+     },
+     recommendationsTipsTitle: {
+       fontSize: 16,
+       fontWeight: 'bold',
+       color: '#92400E',
+       marginBottom: 12,
+     },
+     recommendationsTipsText: {
+       fontSize: 14,
+       color: '#92400E',
        lineHeight: 20,
      },
 
