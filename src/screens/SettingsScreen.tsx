@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -25,6 +26,17 @@ export default function SettingsScreen({ navigation }: any) {
     showLocation: true,
     showPhone: false,
     showEmail: false,
+  });
+
+  // Profil görünürlük ayarları state'leri
+  const [showVisibilityModal, setShowVisibilityModal] = useState(false);
+  const [visibilitySettings, setVisibilitySettings] = useState({
+    profileVisibility: 'public', // public, employers, categories, private
+    showContactInfo: true,
+    showLocation: true,
+    showEarnings: true,
+    showPortfolio: true,
+    visibleCategories: ['Ev Temizliği', 'Bahçe Bakımı', 'Temizlik']
   });
 
   const handleNotificationChange = (key: string, value: boolean) => {
@@ -65,6 +77,33 @@ export default function SettingsScreen({ navigation }: any) {
       'Bu özellik yakında eklenecek.',
       [{ text: 'Tamam' }]
     );
+  };
+
+  // Görünürlük ayarları fonksiyonları
+  const handleVisibilityChange = (setting: string, value: any) => {
+    setVisibilitySettings(prev => ({
+      ...prev,
+      [setting]: value
+    }));
+  };
+
+  const toggleCategoryVisibility = (category: string) => {
+    setVisibilitySettings(prev => ({
+      ...prev,
+      visibleCategories: prev.visibleCategories.includes(category)
+        ? prev.visibleCategories.filter(c => c !== category)
+        : [...prev.visibleCategories, category]
+    }));
+  };
+
+  const saveVisibilitySettings = async () => {
+    try {
+      await AsyncStorage.setItem('visibilitySettings', JSON.stringify(visibilitySettings));
+      Alert.alert('Başarılı', 'Görünürlük ayarları kaydedildi!');
+      setShowVisibilityModal(false);
+    } catch (error) {
+      Alert.alert('Hata', 'Ayarlar kaydedilemedi.');
+    }
   };
 
   const renderSettingItem = (
@@ -176,12 +215,11 @@ export default function SettingsScreen({ navigation }: any) {
             'Profil Görünürlüğü',
             'Profilinizi kimler görebilir',
             <Text style={styles.settingValue}>
-              {privacy.profileVisibility === 'public' ? 'Herkese Açık' : 'Sadece Arkadaşlar'}
+              {visibilitySettings.profileVisibility === 'public' ? 'Herkese Açık' : 
+               visibilitySettings.profileVisibility === 'employers' ? 'Sadece İşverenler' :
+               visibilitySettings.profileVisibility === 'categories' ? 'Seçilen Kategoriler' : 'Gizli'}
             </Text>,
-            () => {
-              const newValue = privacy.profileVisibility === 'public' ? 'friends' : 'public';
-              handlePrivacyChange('profileVisibility', newValue);
-            }
+            () => setShowVisibilityModal(true)
           )}
 
           {renderSettingItem(
@@ -260,6 +298,129 @@ export default function SettingsScreen({ navigation }: any) {
           )}
         </View>
       </ScrollView>
+
+      {/* Profil Görünürlük Ayarları Modal */}
+      <Modal
+        visible={showVisibilityModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowVisibilityModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.visibilityModalContent}>
+            <Text style={styles.modalTitle}>Profil Görünürlük Ayarları</Text>
+            
+            <ScrollView 
+              style={styles.visibilityFormScrollView}
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={styles.visibilityFormScrollContent}
+            >
+              <View style={styles.visibilityFormContainer}>
+                <Text style={styles.formLabel}>Profil Görünürlüğü</Text>
+                <View style={styles.visibilitySelector}>
+                  {[
+                    { value: 'public', label: 'Herkese Açık', icon: '🌍' },
+                    { value: 'employers', label: 'Sadece İşverenler', icon: '👔' },
+                    { value: 'categories', label: 'Seçilen Kategoriler', icon: '📂' },
+                    { value: 'private', label: 'Gizli', icon: '🔒' }
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.visibilityOption,
+                        visibilitySettings.profileVisibility === option.value && styles.visibilityOptionSelected
+                      ]}
+                      onPress={() => handleVisibilityChange('profileVisibility', option.value)}
+                    >
+                      <Text style={styles.visibilityOptionIcon}>{option.icon}</Text>
+                      <Text style={[
+                        styles.visibilityOptionText,
+                        visibilitySettings.profileVisibility === option.value && styles.visibilityOptionTextSelected
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {visibilitySettings.profileVisibility === 'categories' && (
+                  <>
+                    <Text style={styles.formLabel}>Görünür Kategoriler</Text>
+                    <View style={styles.categoryVisibilitySelector}>
+                      {['Ev Temizliği', 'Bahçe Bakımı', 'Temizlik', 'Diğer'].map((category) => (
+                        <TouchableOpacity
+                          key={category}
+                          style={[
+                            styles.categoryVisibilityOption,
+                            visibilitySettings.visibleCategories.includes(category) && styles.categoryVisibilityOptionSelected
+                          ]}
+                          onPress={() => toggleCategoryVisibility(category)}
+                        >
+                          <Text style={[
+                            styles.categoryVisibilityText,
+                            visibilitySettings.visibleCategories.includes(category) && styles.categoryVisibilityTextSelected
+                          ]}>
+                            {category}
+                          </Text>
+                          {visibilitySettings.visibleCategories.includes(category) && (
+                            <Text style={styles.categoryVisibilityCheck}>✓</Text>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
+
+                <Text style={styles.formLabel}>Detay Görünürlüğü</Text>
+                <View style={styles.detailVisibilityContainer}>
+                  {[
+                    { key: 'showContactInfo', label: 'İletişim Bilgileri', icon: '📞' },
+                    { key: 'showLocation', label: 'Adres Bilgisi', icon: '📍' },
+                    { key: 'showEarnings', label: 'Kazanç Bilgileri', icon: '💰' },
+                    { key: 'showPortfolio', label: 'Portföy ve Referanslar', icon: '📁' }
+                  ].map((detail) => (
+                    <TouchableOpacity
+                      key={detail.key}
+                      style={[
+                        styles.detailVisibilityOption,
+                        visibilitySettings[detail.key as keyof typeof visibilitySettings] && styles.detailVisibilityOptionSelected
+                      ]}
+                      onPress={() => handleVisibilityChange(detail.key, !visibilitySettings[detail.key as keyof typeof visibilitySettings])}
+                    >
+                      <Text style={styles.detailVisibilityIcon}>{detail.icon}</Text>
+                      <Text style={styles.detailVisibilityLabel}>{detail.label}</Text>
+                      <View style={[
+                        styles.detailVisibilityToggle,
+                        visibilitySettings[detail.key as keyof typeof visibilitySettings] && styles.detailVisibilityToggleActive
+                      ]}>
+                        <Text style={styles.detailVisibilityToggleText}>
+                          {visibilitySettings[detail.key as keyof typeof visibilitySettings] ? 'ON' : 'OFF'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton} 
+                onPress={() => setShowVisibilityModal(false)}
+              >
+                <Text style={styles.modalCancelText}>İptal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalSaveButton} 
+                onPress={saveVisibilitySettings}
+              >
+                <Text style={styles.modalSaveText}>Kaydet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -342,5 +503,190 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     fontWeight: '500',
+  },
+  // Modal stilleri
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  modalSaveButton: {
+    flex: 1,
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalSaveText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  // Profil görünürlük modal stilleri
+  visibilityModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxWidth: 350,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  visibilityFormScrollView: {
+    maxHeight: 450,
+    marginBottom: 20,
+  },
+  visibilityFormScrollContent: {
+    paddingBottom: 10,
+  },
+  visibilityFormContainer: {
+    gap: 20,
+  },
+  formLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  visibilitySelector: {
+    gap: 12,
+  },
+  visibilityOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  visibilityOptionSelected: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+    borderStyle: 'solid',
+  },
+  visibilityOptionIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  visibilityOptionText: {
+    fontSize: 16,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  visibilityOptionTextSelected: {
+    color: '#2563EB',
+    fontWeight: '600',
+  },
+  categoryVisibilitySelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryVisibilityOption: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  categoryVisibilityOptionSelected: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  categoryVisibilityText: {
+    fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  categoryVisibilityTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  categoryVisibilityCheck: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  detailVisibilityContainer: {
+    gap: 12,
+  },
+  detailVisibilityOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  detailVisibilityOptionSelected: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#10B981',
+  },
+  detailVisibilityIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  detailVisibilityLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  detailVisibilityToggle: {
+    backgroundColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  detailVisibilityToggleActive: {
+    backgroundColor: '#10B981',
+  },
+  detailVisibilityToggleText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
   },
 });
