@@ -225,8 +225,8 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     padding: 16,
-    paddingBottom: 80, // Input alanı için alt boşluk
-    paddingTop: 8, // Üstten de az boşluk
+    paddingBottom: 160, // Input alanı için çok daha fazla alt boşluk
+    paddingTop: 8,
   },
   messageContainer: {
     marginBottom: 8, // 12'den 8'e düşürüldü
@@ -275,18 +275,18 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: 4, // 8'den 4'e düşürüldü
-    paddingTop: 2, // 4'ten 2'ye düşürüldü
-    paddingBottom: 20, // Telefon butonları ile iç içe girmesin
+    padding: 16,
+    paddingTop: 12,
+    paddingBottom: 80, // Telefon butonları ile arasında çok daha fazla boşluk
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     alignItems: 'flex-end',
-    position: 'absolute', // Mutlak pozisyon
-    bottom: 0, // En altta
+    position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
-    zIndex: 1000, // Üstte görünmesi için
+    zIndex: 1000,
   },
   input: {
     flex: 1,
@@ -294,15 +294,15 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 4, // 6'dan 4'e düşürüldü
-    maxHeight: 60, // 80'den 60'a düşürüldü
+    paddingVertical: 8,
+    maxHeight: 80,
     fontSize: 16,
     marginRight: 12,
   },
   sendButton: {
-    width: 36, // 40'tan 36'ya düşürüldü
-    height: 36, // 40'tan 36'ya düşürüldü
-    borderRadius: 18, // 20'den 18'e düşürüldü
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',

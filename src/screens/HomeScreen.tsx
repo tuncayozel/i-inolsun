@@ -122,7 +122,7 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.headerTop}>
             <View style={styles.headerLeft}>
               <Text style={styles.welcomeText}>Merhaba! 👋</Text>
-              <Text style={styles.title}>Bugün hangi işi yapacaksın?</Text>
+              <Text style={styles.title}>İster iş ver, ister iş yaptır</Text>
             </View>
             <TouchableOpacity 
               style={styles.notificationButton}

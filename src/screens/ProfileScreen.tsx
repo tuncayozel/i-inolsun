@@ -12,7 +12,7 @@ import {
   TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { formatPrice } from '../data/mockData';
+
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -129,22 +129,8 @@ export default function ProfileScreen({ navigation }: any) {
     visibleCategories: ['Ev Temizliği', 'Bahçe Bakımı', 'Temizlik']
   });
 
-  // Profil doğrulama sistemi state'leri
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [verificationData, setVerificationData] = useState({
-    identityVerified: false,
-    phoneVerified: false,
-    addressVerified: false,
-    certificatesVerified: false,
-    verificationLevel: 'bronze', // bronze, silver, gold
-    verificationScore: 45, // 0-100
-    documents: [
-      { id: 1, type: 'identity', name: 'TC Kimlik', status: 'pending', uploaded: false },
-      { id: 2, type: 'address', name: 'Adres Belgesi', status: 'pending', uploaded: false },
-      { id: 3, type: 'phone', name: 'Telefon Doğrulama', status: 'pending', uploaded: false },
-      { id: 4, type: 'certificate', name: 'Mesleki Sertifika', status: 'pending', uploaded: false }
-    ]
-  });
+  // Profil seviye sistemi state'leri
+  const [verificationLevel] = useState('bronze'); // Sadece bronz seviye
 
   // Profil önerileri sistemi state'leri
   const [showRecommendationsModal, setShowRecommendationsModal] = useState(false);
@@ -161,18 +147,7 @@ export default function ProfileScreen({ navigation }: any) {
       progress: 75,
       benefits: ['%40 daha fazla iş teklifi', 'Güvenilirlik artışı', 'Öncelikli görünüm']
     },
-    {
-      id: 2,
-      type: 'verification',
-      title: 'Profil Doğrulama',
-      description: 'Belgelerinizi doğrulayarak güven rozeti kazanın',
-      priority: 'high',
-      completed: false,
-      action: 'Doğrula',
-      icon: '🔒',
-      progress: 45,
-      benefits: ['Güven rozeti', 'Yüksek ücretli işler', 'Öncelik sırası']
-    },
+
     {
       id: 3,
       type: 'skills',
@@ -532,24 +507,7 @@ export default function ProfileScreen({ navigation }: any) {
     Alert.alert('Belge Yükleme', 'Belge yükleme özelliği geliştirilme aşamasında...');
   };
 
-  const handlePhoneVerification = () => {
-    Alert.alert('Telefon Doğrulama', 'SMS doğrulama kodu gönderildi. Özellik geliştirilme aşamasında...');
-  };
 
-  const calculateVerificationScore = () => {
-    let score = 0;
-    if (verificationData.identityVerified) score += 25;
-    if (verificationData.phoneVerified) score += 20;
-    if (verificationData.addressVerified) score += 25;
-    if (verificationData.certificatesVerified) score += 30;
-    return score;
-  };
-
-  const updateVerificationLevel = (score: number) => {
-    if (score >= 80) return 'gold';
-    if (score >= 60) return 'silver';
-    return 'bronze';
-  };
 
   // Profil önerileri sistemi fonksiyonları
   const getPriorityColor = (priority: string) => {
@@ -575,9 +533,7 @@ export default function ProfileScreen({ navigation }: any) {
       case 'profile_completion':
         navigation.navigate('ProfileEdit');
         break;
-      case 'verification':
-        setShowVerificationModal(true);
-        break;
+
       case 'skills':
         setShowSkillsModal(true);
         break;
@@ -675,10 +631,10 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
           </View>
           
-          <Text style={styles.name}>{user.name}</Text>
-          <Text style={styles.email}>{user.email}</Text>
-          <Text style={styles.location}>📍 {user.location}</Text>
-          <Text style={styles.memberSince}>
+          <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">{user.name}</Text>
+          <Text style={styles.email} numberOfLines={1} ellipsizeMode="tail">{user.email}</Text>
+          <Text style={styles.location} numberOfLines={1} ellipsizeMode="tail">📍 {user.location}</Text>
+          <Text style={styles.memberSince} numberOfLines={1} ellipsizeMode="tail">
             {formatMemberSince(user.memberSince)} tarihinden beri üye
           </Text>
         </View>
@@ -687,22 +643,25 @@ export default function ProfileScreen({ navigation }: any) {
          <View style={styles.statsContainer}>
            <View style={styles.statCard}>
              <Text style={styles.statNumber}>{user.rating}</Text>
-             <Text style={styles.statLabel}>⭐ Puan</Text>
+             <Text style={styles.statLabel} numberOfLines={1} ellipsizeMode="tail">⭐ Puan</Text>
            </View>
            
            <View style={styles.statCard}>
              <Text style={styles.statNumber}>{user.completedJobs}</Text>
-             <Text style={styles.statLabel}>✅ Tamamlanan</Text>
+             <Text style={styles.statLabel} numberOfLines={1} ellipsizeMode="tail">✅ Tamamlanan İş</Text>
            </View>
            
            <View style={styles.statCard}>
              <Text style={styles.statNumber}>{user.activeJobs}</Text>
-             <Text style={styles.statLabel}>🔄 Aktif</Text>
+             <Text style={styles.statLabel} numberOfLines={1} ellipsizeMode="tail">🔄 Aktif İş</Text>
            </View>
            
            <View style={styles.statCard}>
-             <Text style={styles.statNumber}>{formatPrice(user.totalEarnings)}</Text>
-             <Text style={styles.statLabel}>💰 Toplam</Text>
+             <Text style={styles.statNumber}>
+               <Text>{user.totalEarnings.toLocaleString('tr-TR')}</Text>
+               <Text style={styles.currencyText}> TL</Text>
+             </Text>
+             <Text style={styles.statLabel} numberOfLines={1} ellipsizeMode="tail">💰 Toplam Kazanç</Text>
            </View>
          </View>
 
@@ -789,93 +748,29 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* Profil Doğrulama Kartı */}
+          {/* Profil Seviye Kartı */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>🔒 Profil Doğrulama</Text>
-              <TouchableOpacity 
-                style={styles.verificationButton}
-                onPress={() => setShowVerificationModal(true)}
-              >
-                <Text style={styles.verificationButtonText}>Doğrula</Text>
-              </TouchableOpacity>
+              <Text style={styles.sectionTitle}>🥉 Profil Seviyesi</Text>
             </View>
            
            <View style={styles.verificationCard}>
              <View style={styles.verificationHeader}>
                <View style={styles.verificationLevelContainer}>
                  <Text style={styles.verificationLevelIcon}>
-                   {getVerificationLevelIcon(verificationData.verificationLevel)}
+                   {getVerificationLevelIcon()}
                  </Text>
                  <View>
                    <Text style={styles.verificationLevelText}>
-                     {verificationData.verificationLevel === 'bronze' ? 'Bronz' : 
-                      verificationData.verificationLevel === 'silver' ? 'Gümüş' : 'Altın'} Seviye
+                     Bronz Seviye
                    </Text>
                    <Text style={styles.verificationScoreText}>
-                     {verificationData.verificationScore}/100 Puan
+                     Temel seviye profil
                    </Text>
                  </View>
                </View>
-               
-               <View style={styles.verificationProgressContainer}>
-                 <View style={styles.verificationProgressBar}>
-                   <View 
-                     style={[
-                       styles.verificationProgressFill, 
-                       { 
-                         width: `${verificationData.verificationScore}%`,
-                         backgroundColor: getVerificationLevelColor(verificationData.verificationLevel)
-                       }
-                     ]} 
-                   />
-                 </View>
-               </View>
              </View>
-             
-             <View style={styles.verificationDocumentsContainer}>
-               {verificationData.documents.map((document) => (
-                 <View key={document.id} style={styles.verificationDocumentItem}>
-                   <View style={styles.documentInfo}>
-                     <Text style={styles.documentName}>{document.name}</Text>
-                     <View style={styles.documentStatusContainer}>
-                       <Text style={[
-                         styles.documentStatusIcon,
-                         { color: getDocumentStatusColor(document.status) }
-                       ]}>
-                         {getDocumentStatusIcon(document.status)}
-                       </Text>
-                       <Text style={[
-                         styles.documentStatusText,
-                         { color: getDocumentStatusColor(document.status) }
-                       ]}>
-                         {document.status === 'verified' ? 'Doğrulandı' : 
-                          document.status === 'pending' ? 'Beklemede' : 'Reddedildi'}
-                       </Text>
-                     </View>
-                   </View>
-                   
-                   {!document.uploaded && document.status !== 'verified' && (
-                     <TouchableOpacity 
-                       style={styles.uploadDocumentButton}
-                       onPress={() => handleDocumentUpload(document.id)}
-                     >
-                       <Text style={styles.uploadDocumentButtonText}>Yükle</Text>
-                     </TouchableOpacity>
-                   )}
-                   
-                   {document.type === 'phone' && document.status !== 'verified' && (
-                     <TouchableOpacity 
-                       style={styles.verifyPhoneButton}
-                       onPress={handlePhoneVerification}
-                     >
-                       <Text style={styles.verifyPhoneButtonText}>Doğrula</Text>
-                     </TouchableOpacity>
-                   )}
-                 </View>
-               ))}
-             </View>
-                       </View>
+           </View>
           </View>
 
 
@@ -891,7 +786,10 @@ export default function ProfileScreen({ navigation }: any) {
                  return (
                    <View key={index} style={styles.chartBar}>
                      <View style={[styles.bar, { height: `${height}%` }]} />
-                     <Text style={styles.barLabel}>{formatPrice(earning)}</Text>
+                     <Text style={styles.barLabel}>
+                       <Text>{earning.toLocaleString('tr-TR')}</Text>
+                       <Text style={styles.currencyText}> TL</Text>
+                     </Text>
                      <Text style={styles.monthLabel}>
                        {['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz'][index]}
                      </Text>
@@ -1021,12 +919,16 @@ export default function ProfileScreen({ navigation }: any) {
                    </View>
                    <View style={styles.categoryPerformanceDetail}>
                      <Text style={styles.categoryPerformanceDetailLabel}>Toplam Kazanç</Text>
-                     <Text style={styles.categoryPerformanceDetailValue}>{formatPrice(stat.earnings)}</Text>
+                     <Text style={styles.categoryPerformanceDetailValue}>
+                       <Text>{stat.earnings.toLocaleString('tr-TR')}</Text>
+                       <Text style={styles.currencyText}> TL</Text>
+                     </Text>
                    </View>
                    <View style={styles.categoryPerformanceDetail}>
                      <Text style={styles.categoryPerformanceDetailLabel}>Ortalama</Text>
                      <Text style={styles.categoryPerformanceDetailValue}>
-                       {formatPrice(stat.earnings / stat.count)}
+                       <Text>{Math.round(stat.earnings / stat.count).toLocaleString('tr-TR')}</Text>
+                       <Text style={styles.currencyText}> TL</Text>
                      </Text>
                    </View>
                  </View>
@@ -1048,7 +950,10 @@ export default function ProfileScreen({ navigation }: any) {
                     <Text style={styles.categoryStatLabel}>İş</Text>
                   </View>
                   <View style={styles.categoryStatItem}>
-                    <Text style={styles.categoryStatNumber}>{formatPrice(stat.earnings)}</Text>
+                    <Text style={styles.categoryStatNumber}>
+                      <Text>{stat.earnings.toLocaleString('tr-TR')}</Text>
+                      <Text style={styles.currencyText}> TL</Text>
+                    </Text>
                     <Text style={styles.categoryStatLabel}>Kazanç</Text>
                   </View>
                 </View>
@@ -1154,7 +1059,8 @@ export default function ProfileScreen({ navigation }: any) {
                    </View>
                    <View style={styles.portfolioEarnings}>
                      <Text style={styles.earningsAmount}>
-                       {formatPrice(item.earnings)}
+                       <Text>{item.earnings.toLocaleString('tr-TR')}</Text>
+                       <Text style={styles.currencyText}> TL</Text>
                      </Text>
                    </View>
                  </View>
@@ -1780,127 +1686,7 @@ export default function ProfileScreen({ navigation }: any) {
              </View>
            </Modal>
 
-           {/* Profil Doğrulama Modal */}
-           <Modal
-             visible={showVerificationModal}
-             transparent={true}
-             animationType="slide"
-             onRequestClose={() => setShowVerificationModal(false)}
-           >
-            <View style={styles.modalOverlay}>
-              <View style={styles.verificationModalContent}>
-                <Text style={styles.modalTitle}>🔒 Profil Doğrulama</Text>
-                
-                <ScrollView 
-                  style={styles.verificationFormScrollView}
-                  showsVerticalScrollIndicator={true}
-                  contentContainerStyle={styles.verificationFormScrollContent}
-                >
-                  <View style={styles.verificationFormContainer}>
-                    {/* Doğrulama Seviyesi Bilgisi */}
-                    <View style={styles.verificationLevelInfo}>
-                      <Text style={styles.verificationLevelInfoIcon}>
-                        {getVerificationLevelIcon(verificationData.verificationLevel)}
-                      </Text>
-                      <View>
-                        <Text style={styles.verificationLevelInfoTitle}>
-                          {verificationData.verificationLevel === 'bronze' ? 'Bronz Seviye' : 
-                           verificationData.verificationLevel === 'silver' ? 'Gümüş Seviye' : 'Altın Seviye'}
-                        </Text>
-                        <Text style={styles.verificationLevelInfoDescription}>
-                          {verificationData.verificationLevel === 'bronze' ? 
-                           'Temel doğrulama adımlarını tamamlayın' :
-                           verificationData.verificationLevel === 'silver' ? 
-                           'Orta seviye doğrulama için ek belgeler gerekli' :
-                           'Maksimum güven için tüm belgeleri doğrulayın'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Doğrulama Puanı */}
-                    <View style={styles.verificationScoreInfo}>
-                      <Text style={styles.verificationScoreLabel}>Doğrulama Puanınız</Text>
-                      <Text style={styles.verificationScoreValue}>
-                        {verificationData.verificationScore}/100
-                      </Text>
-                      <View style={styles.verificationScoreBar}>
-                        <View 
-                          style={[
-                            styles.verificationScoreFill, 
-                            { width: `${verificationData.verificationScore}%` }
-                          ]} 
-                        />
-                      </View>
-                    </View>
-
-                    {/* Doğrulama Adımları */}
-                    <Text style={styles.verificationStepsTitle}>Doğrulama Adımları</Text>
-                    <View style={styles.verificationStepsContainer}>
-                      {verificationData.documents.map((document) => (
-                        <View key={document.id} style={styles.verificationStepItem}>
-                          <View style={styles.verificationStepHeader}>
-                            <Text style={styles.verificationStepIcon}>
-                              {getDocumentStatusIcon(document.status)}
-                            </Text>
-                            <View style={styles.verificationStepInfo}>
-                              <Text style={styles.verificationStepName}>{document.name}</Text>
-                              <Text style={[
-                                styles.verificationStepStatus,
-                                { color: getDocumentStatusColor(document.status) }
-                              ]}>
-                                {document.status === 'verified' ? 'Doğrulandı' : 
-                                 document.status === 'pending' ? 'Beklemede' : 'Reddedildi'}
-                              </Text>
-                            </View>
-                          </View>
-                          
-                          <View style={styles.verificationStepActions}>
-                            {document.type === 'phone' && document.status !== 'verified' && (
-                              <TouchableOpacity 
-                                style={styles.verificationStepButton}
-                                onPress={handlePhoneVerification}
-                              >
-                                <Text style={styles.verificationStepButtonText}>SMS Doğrula</Text>
-                              </TouchableOpacity>
-                            )}
-                            
-                            {document.type !== 'phone' && document.status !== 'verified' && (
-                              <TouchableOpacity 
-                                style={styles.verificationStepButton}
-                                onPress={() => handleDocumentUpload(document.id)}
-                              >
-                                <Text style={styles.verificationStepButtonText}>Belge Yükle</Text>
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-
-                    {/* Doğrulama Faydaları */}
-                    <View style={styles.verificationBenefitsContainer}>
-                      <Text style={styles.verificationBenefitsTitle}>✅ Doğrulama Faydaları</Text>
-                      <View style={styles.verificationBenefitsList}>
-                        <Text style={styles.verificationBenefitItem}>• İşverenler tarafından daha güvenilir görünürsünüz</Text>
-                        <Text style={styles.verificationBenefitItem}>• Daha yüksek ücretli işler için öncelik kazanırsınız</Text>
-                        <Text style={styles.verificationBenefitItem}>• Profilinizde güven rozeti görünür</Text>
-                        <Text style={styles.verificationBenefitItem}>• Platform güvenlik standartlarına uygun olursunuz</Text>
-                      </View>
-                    </View>
-                  </View>
-                </ScrollView>
-                
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity 
-                    style={styles.modalCancelButton} 
-                    onPress={() => setShowVerificationModal(false)}
-                  >
-                    <Text style={styles.modalCancelText}>Kapat</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-                     </Modal>
+           
 
 
       </SafeAreaView>
@@ -2012,20 +1798,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1F2937',
     marginBottom: 4,
+    flexWrap: 'nowrap',
   },
   email: {
     fontSize: 16,
     color: '#6B7280',
     marginBottom: 4,
+    flexWrap: 'nowrap',
   },
   location: {
     fontSize: 14,
     color: '#6B7280',
     marginBottom: 4,
+    flexWrap: 'nowrap',
   },
   memberSince: {
     fontSize: 12,
     color: '#9CA3AF',
+    flexWrap: 'nowrap',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -2039,6 +1829,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
+    minHeight: 80,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -2058,6 +1849,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6B7280',
     textAlign: 'center',
+    lineHeight: 14,
+    flexWrap: 'wrap',
+  },
+  currencyText: {
+    fontWeight: 'bold',
+    color: '#1F2937',
   },
   // Grafik stilleri
   chartContainer: {
