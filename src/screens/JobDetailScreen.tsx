@@ -12,6 +12,14 @@ import { Job, formatPrice, formatDate } from '../data/mockData';
 
 const JobDetailScreen = ({ route, navigation }: any) => {
   const { job }: { job: Job } = route.params;
+  const [hasApplied, setHasApplied] = React.useState(false);
+
+  // Kullanıcının bu işe başvurup başvurmadığını kontrol et
+  React.useEffect(() => {
+    // Gerçek projede API'den kontrol edilecek
+    // Şimdilik mock data olarak false
+    setHasApplied(false);
+  }, [job.id]);
 
   const handleApplyJob = () => {
     Alert.alert(
@@ -22,6 +30,7 @@ const JobDetailScreen = ({ route, navigation }: any) => {
         { 
           text: 'Başvur', 
           onPress: () => {
+            setHasApplied(true);
             Alert.alert('Başarılı', 'Başvurunuz gönderildi! İşveren sizinle iletişime geçecektir.');
           }
         }
@@ -64,6 +73,14 @@ const JobDetailScreen = ({ route, navigation }: any) => {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {/* Back Button */}
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>← Geri</Text>
+          </TouchableOpacity>
+          
           <View style={styles.header}>
             <Text style={styles.title}>{job.title}</Text>
             <View style={[styles.statusBadge, getStatusBadgeStyle(job.status)]}>
@@ -123,10 +140,13 @@ const JobDetailScreen = ({ route, navigation }: any) => {
         </TouchableOpacity>
         
         <TouchableOpacity
-          style={styles.applyButton}
+          style={[styles.applyButton, hasApplied && styles.appliedButton]}
           onPress={handleApplyJob}
+          disabled={hasApplied}
         >
-          <Text style={styles.applyButtonText}>Başvur</Text>
+          <Text style={[styles.applyButtonText, hasApplied && styles.appliedButtonText]}>
+            {hasApplied ? 'Başvuruldu ✓' : 'Başvur'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -144,6 +164,17 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingTop: 40,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#2563EB',
+    fontWeight: '600',
   },
   header: {
     marginBottom: 24,
@@ -256,6 +287,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  appliedButton: {
+    backgroundColor: '#10B981',
+  },
+  appliedButtonText: {
+    color: '#FFFFFF',
   },
 });
 

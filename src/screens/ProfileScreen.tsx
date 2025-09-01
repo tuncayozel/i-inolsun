@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,42 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
-import { mockUserProfile, formatPrice } from '../data/mockData';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { formatPrice } from '../data/mockData';
 
 export default function ProfileScreen({ navigation }: any) {
-  const user = mockUserProfile;
+  const [user, setUser] = useState({
+    name: 'Test Kullanıcı',
+    email: 'test@email.com',
+    location: 'İstanbul, Türkiye',
+    memberSince: new Date(),
+    rating: 4.8,
+    completedJobs: 12,
+    totalEarnings: 2500,
+    skills: ['Ev Temizliği', 'Bahçe Bakımı', 'Temizlik'],
+    phone: '0532 123 45 67'
+  });
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUser(prev => ({
+          ...prev,
+          name: parsedUser.name,
+          email: parsedUser.email,
+          phone: parsedUser.phone
+        }));
+      }
+    } catch (error) {
+      console.log('Kullanıcı verisi yüklenemedi:', error);
+    }
+  };
 
   const handleEditProfile = () => {
     Alert.alert('Düzenle', 'Profil düzenleme özelliği geliştirilme aşamasında...');
@@ -21,7 +53,7 @@ export default function ProfileScreen({ navigation }: any) {
     Alert.alert('Ayarlar', 'Ayarlar özelliği geliştirilme aşamasında...');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Alert.alert(
       'Çıkış Yap',
       'Çıkış yapmak istediğinizden emin misiniz?',
@@ -29,7 +61,19 @@ export default function ProfileScreen({ navigation }: any) {
         { text: 'İptal', style: 'cancel' },
         { 
           text: 'Çıkış Yap', 
-          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Splash' }] })
+          onPress: async () => {
+            try {
+              // AsyncStorage'dan kullanıcı verilerini temizle
+              await AsyncStorage.removeItem('userToken');
+              await AsyncStorage.removeItem('userData');
+              
+              // Splash ekranına yönlendir
+              navigation.reset({ index: 0, routes: [{ name: 'Splash' }] });
+            } catch (error) {
+              console.log('Çıkış yapılırken hata:', error);
+              navigation.reset({ index: 0, routes: [{ name: 'Splash' }] });
+            }
+          }
         }
       ]
     );

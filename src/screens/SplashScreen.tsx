@@ -8,6 +8,7 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -30,10 +31,30 @@ const SplashScreen: React.FC<any> = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Animasyon tamamlandıktan sonra butonları göster
-      setTimeout(() => setShowButtons(true), 500);
+      // Animasyon tamamlandıktan sonra giriş durumunu kontrol et
+      setTimeout(() => checkLoginStatus(), 500);
     });
   }, [fadeAnim, slideAnim]);
+
+  const checkLoginStatus = async () => {
+    try {
+      const userToken = await AsyncStorage.getItem('userToken');
+      const userData = await AsyncStorage.getItem('userData');
+      
+      if (userToken && userData) {
+        // Kullanıcı giriş yapmış, ana ekrana yönlendir
+        if (navigation) {
+          navigation.replace('Main');
+        }
+      } else {
+        // Kullanıcı giriş yapmamış, butonları göster
+        setShowButtons(true);
+      }
+    } catch (error) {
+      console.log('Giriş durumu kontrol edilemedi:', error);
+      setShowButtons(true);
+    }
+  };
 
   const handleLogin = () => {
     if (navigation) {

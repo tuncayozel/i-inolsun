@@ -14,7 +14,7 @@ export default function MyJobsScreen({ navigation }: any) {
   const [selectedFilter, setSelectedFilter] = useState<'active' | 'completed' | 'in-progress'>('active');
   
   // Mock user jobs - gerçek projede kullanıcının işleri gelecek
-  const userJobs = mockJobs.slice(0, 3); // İlk 3 işi al
+  const userJobs = mockJobs.slice(0, 5); // İlk 5 işi al
   const filteredJobs = userJobs.filter(job => job.status === selectedFilter);
 
   const getStatusLabel = (status: string) => {
@@ -90,7 +90,7 @@ export default function MyJobsScreen({ navigation }: any) {
             <Text style={[
               styles.filterText,
               selectedFilter === filter && styles.filterTextActive
-            ]}>
+            ]} numberOfLines={1}>
               {getStatusLabel(filter)}
             </Text>
           </TouchableOpacity>
@@ -145,26 +145,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     marginBottom: 20,
-    gap: 10,
+    gap: 8,
   },
   filterButton: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     borderRadius: 25,
     backgroundColor: '#F5F5F5',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    minHeight: 44,
   },
   filterButtonActive: {
     backgroundColor: '#2563EB',
     borderColor: '#2563EB',
   },
   filterText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 16,
   },
   filterTextActive: {
     color: '#FFFFFF',

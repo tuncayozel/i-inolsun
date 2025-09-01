@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RegisterScreen({ navigation }: any) {
   const [formData, setFormData] = useState({
@@ -45,13 +46,32 @@ export default function RegisterScreen({ navigation }: any) {
     }
 
     setLoading(true);
-    // Mock register - gerçek projede Firebase Auth kullanılacak
-    setTimeout(() => {
+    
+    try {
+      // Mock register - gerçek projede Firebase Auth kullanılacak
+      // Şimdilik basit bir kullanıcı verisi oluşturuyoruz
+      const userData = {
+        id: Date.now().toString(),
+        name: name,
+        email: email,
+        phone: phone,
+        avatar: '👤'
+      };
+      
+      const userToken = 'mock_token_' + Date.now();
+      
+      // Kullanıcı verilerini AsyncStorage'a kaydet
+      await AsyncStorage.setItem('userToken', userToken);
+      await AsyncStorage.setItem('userData', JSON.stringify(userData));
+      
       setLoading(false);
-      Alert.alert('Başarılı', 'Kayıt tamamlandı! Giriş yapabilirsiniz.', [
-        { text: 'Tamam', onPress: () => navigation.navigate('Login') }
+      Alert.alert('Başarılı', 'Kayıt tamamlandı! Otomatik giriş yapılıyor...', [
+        { text: 'Tamam', onPress: () => navigation.replace('Main') }
       ]);
-    }, 1000);
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Hata', 'Kayıt yapılamadı. Lütfen tekrar deneyin.');
+    }
   };
 
   return (

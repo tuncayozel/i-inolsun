@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -23,13 +24,32 @@ export default function LoginScreen({ navigation }: any) {
     }
 
     setLoading(true);
-    // Mock login - gerçek projede Firebase Auth kullanılacak
-    setTimeout(() => {
+    
+    try {
+      // Mock login - gerçek projede Firebase Auth kullanılacak
+      // Şimdilik basit bir kullanıcı verisi oluşturuyoruz
+      const userData = {
+        id: '1',
+        name: 'Test Kullanıcı',
+        email: email,
+        phone: '0532 123 45 67',
+        avatar: '👤'
+      };
+      
+      const userToken = 'mock_token_' + Date.now();
+      
+      // Kullanıcı verilerini AsyncStorage'a kaydet
+      await AsyncStorage.setItem('userToken', userToken);
+      await AsyncStorage.setItem('userData', JSON.stringify(userData));
+      
       setLoading(false);
       Alert.alert('Başarılı', 'Giriş yapıldı!', [
         { text: 'Tamam', onPress: () => navigation.replace('Main') }
       ]);
-    }, 1000);
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Hata', 'Giriş yapılamadı. Lütfen tekrar deneyin.');
+    }
   };
 
   return (
