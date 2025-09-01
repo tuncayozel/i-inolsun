@@ -129,6 +129,25 @@ export default function ProfileScreen({ navigation }: any) {
     visibleCategories: ['Ev Temizliği', 'Bahçe Bakımı', 'Temizlik']
   });
 
+  // Profil doğrulama sistemi state'leri
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationData, setVerificationData] = useState({
+    identityVerified: false,
+    phoneVerified: false,
+    addressVerified: false,
+    certificatesVerified: false,
+    verificationLevel: 'bronze', // bronze, silver, gold
+    verificationScore: 45, // 0-100
+    documents: [
+      { id: 1, type: 'identity', name: 'TC Kimlik', status: 'pending', uploaded: false },
+      { id: 2, type: 'address', name: 'Adres Belgesi', status: 'pending', uploaded: false },
+      { id: 3, type: 'phone', name: 'Telefon Doğrulama', status: 'pending', uploaded: false },
+      { id: 4, type: 'certificate', name: 'Mesleki Sertifika', status: 'pending', uploaded: false }
+    ]
+  });
+
+
+
   useFocusEffect(
     React.useCallback(() => {
       loadUserData();
@@ -394,6 +413,69 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
+  // Profil doğrulama sistemi fonksiyonları
+  const getVerificationLevelColor = (level: string) => {
+    switch (level) {
+      case 'bronze': return '#CD7F32';
+      case 'silver': return '#C0C0C0';
+      case 'gold': return '#FFD700';
+      default: return '#6B7280';
+    }
+  };
+
+  const getVerificationLevelIcon = (level: string) => {
+    switch (level) {
+      case 'bronze': return '🥉';
+      case 'silver': return '🥈';
+      case 'gold': return '🥇';
+      default: return '❓';
+    }
+  };
+
+  const getDocumentStatusIcon = (status: string) => {
+    switch (status) {
+      case 'verified': return '✅';
+      case 'pending': return '⏳';
+      case 'rejected': return '❌';
+      default: return '📄';
+    }
+  };
+
+  const getDocumentStatusColor = (status: string) => {
+    switch (status) {
+      case 'verified': return '#10B981';
+      case 'pending': return '#F59E0B';
+      case 'rejected': return '#EF4444';
+      default: return '#6B7280';
+    }
+  };
+
+  const handleDocumentUpload = (documentId: number) => {
+    // Belge yükleme işlemi burada yapılacak
+    Alert.alert('Belge Yükleme', 'Belge yükleme özelliği geliştirilme aşamasında...');
+  };
+
+  const handlePhoneVerification = () => {
+    Alert.alert('Telefon Doğrulama', 'SMS doğrulama kodu gönderildi. Özellik geliştirilme aşamasında...');
+  };
+
+  const calculateVerificationScore = () => {
+    let score = 0;
+    if (verificationData.identityVerified) score += 25;
+    if (verificationData.phoneVerified) score += 20;
+    if (verificationData.addressVerified) score += 25;
+    if (verificationData.certificatesVerified) score += 30;
+    return score;
+  };
+
+  const updateVerificationLevel = (score: number) => {
+    if (score >= 80) return 'gold';
+    if (score >= 60) return 'silver';
+    return 'bronze';
+  };
+
+
+
   const menuItems = [
     { icon: '⚙️', title: 'Ayarlar', onPress: handleSettings },
     { icon: '📋', title: 'İş Geçmişi', onPress: () => navigation.navigate('MyJobs') },
@@ -460,30 +542,121 @@ export default function ProfileScreen({ navigation }: any) {
           </Text>
         </View>
 
-        {/* Ana İstatistikler */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{user.rating}</Text>
-            <Text style={styles.statLabel}>⭐ Puan</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{user.completedJobs}</Text>
-            <Text style={styles.statLabel}>✅ Tamamlanan</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{user.activeJobs}</Text>
-            <Text style={styles.statLabel}>🔄 Aktif</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{formatPrice(user.totalEarnings)}</Text>
-            <Text style={styles.statLabel}>💰 Toplam</Text>
-          </View>
-        </View>
+                 {/* Ana İstatistikler */}
+         <View style={styles.statsContainer}>
+           <View style={styles.statCard}>
+             <Text style={styles.statNumber}>{user.rating}</Text>
+             <Text style={styles.statLabel}>⭐ Puan</Text>
+           </View>
+           
+           <View style={styles.statCard}>
+             <Text style={styles.statNumber}>{user.completedJobs}</Text>
+             <Text style={styles.statLabel}>✅ Tamamlanan</Text>
+           </View>
+           
+           <View style={styles.statCard}>
+             <Text style={styles.statNumber}>{user.activeJobs}</Text>
+             <Text style={styles.statLabel}>🔄 Aktif</Text>
+           </View>
+           
+           <View style={styles.statCard}>
+             <Text style={styles.statNumber}>{formatPrice(user.totalEarnings)}</Text>
+             <Text style={styles.statLabel}>💰 Toplam</Text>
+           </View>
+         </View>
 
-                 {/* Aylık Kazanç Grafiği */}
+         {/* Profil Doğrulama Kartı */}
+         <View style={styles.section}>
+           <View style={styles.sectionHeader}>
+             <Text style={styles.sectionTitle}>🔒 Profil Doğrulama</Text>
+             <TouchableOpacity 
+               style={styles.verificationButton}
+               onPress={() => setShowVerificationModal(true)}
+             >
+               <Text style={styles.verificationButtonText}>Doğrula</Text>
+             </TouchableOpacity>
+           </View>
+           
+           <View style={styles.verificationCard}>
+             <View style={styles.verificationHeader}>
+               <View style={styles.verificationLevelContainer}>
+                 <Text style={styles.verificationLevelIcon}>
+                   {getVerificationLevelIcon(verificationData.verificationLevel)}
+                 </Text>
+                 <View>
+                   <Text style={styles.verificationLevelText}>
+                     {verificationData.verificationLevel === 'bronze' ? 'Bronz' : 
+                      verificationData.verificationLevel === 'silver' ? 'Gümüş' : 'Altın'} Seviye
+                   </Text>
+                   <Text style={styles.verificationScoreText}>
+                     {verificationData.verificationScore}/100 Puan
+                   </Text>
+                 </View>
+               </View>
+               
+               <View style={styles.verificationProgressContainer}>
+                 <View style={styles.verificationProgressBar}>
+                   <View 
+                     style={[
+                       styles.verificationProgressFill, 
+                       { 
+                         width: `${verificationData.verificationScore}%`,
+                         backgroundColor: getVerificationLevelColor(verificationData.verificationLevel)
+                       }
+                     ]} 
+                   />
+                 </View>
+               </View>
+             </View>
+             
+             <View style={styles.verificationDocumentsContainer}>
+               {verificationData.documents.map((document) => (
+                 <View key={document.id} style={styles.verificationDocumentItem}>
+                   <View style={styles.documentInfo}>
+                     <Text style={styles.documentName}>{document.name}</Text>
+                     <View style={styles.documentStatusContainer}>
+                       <Text style={[
+                         styles.documentStatusIcon,
+                         { color: getDocumentStatusColor(document.status) }
+                       ]}>
+                         {getDocumentStatusIcon(document.status)}
+                       </Text>
+                       <Text style={[
+                         styles.documentStatusText,
+                         { color: getDocumentStatusColor(document.status) }
+                       ]}>
+                         {document.status === 'verified' ? 'Doğrulandı' : 
+                          document.status === 'pending' ? 'Beklemede' : 'Reddedildi'}
+                       </Text>
+                     </View>
+                   </View>
+                   
+                   {!document.uploaded && document.status !== 'verified' && (
+                     <TouchableOpacity 
+                       style={styles.uploadDocumentButton}
+                       onPress={() => handleDocumentUpload(document.id)}
+                     >
+                       <Text style={styles.uploadDocumentButtonText}>Yükle</Text>
+                     </TouchableOpacity>
+                   )}
+                   
+                   {document.type === 'phone' && document.status !== 'verified' && (
+                     <TouchableOpacity 
+                       style={styles.verifyPhoneButton}
+                       onPress={handlePhoneVerification}
+                     >
+                       <Text style={styles.verifyPhoneButtonText}>Doğrula</Text>
+                     </TouchableOpacity>
+                   )}
+                 </View>
+               ))}
+             </View>
+                       </View>
+          </View>
+
+
+
+                  {/* Aylık Kazanç Grafiği */}
          <View style={styles.section}>
            <Text style={styles.sectionTitle}>📈 Aylık Kazanç Trendi</Text>
            <View style={styles.chartContainer}>
@@ -1135,131 +1308,255 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
                  </Modal>
 
-         {/* Profil Görünürlük Ayarları Modal */}
-         <Modal
-           visible={showVisibilityModal}
-           transparent={true}
-           animationType="slide"
-           onRequestClose={() => setShowVisibilityModal(false)}
-         >
-           <View style={styles.modalOverlay}>
-             <View style={styles.visibilityModalContent}>
-               <Text style={styles.modalTitle}>Profil Görünürlük Ayarları</Text>
-               
-               <ScrollView 
-                 style={styles.visibilityFormScrollView}
-                 showsVerticalScrollIndicator={true}
-                 contentContainerStyle={styles.visibilityFormScrollContent}
-               >
-                 <View style={styles.visibilityFormContainer}>
-                   <Text style={styles.formLabel}>Profil Görünürlüğü</Text>
-                   <View style={styles.visibilitySelector}>
-                     {[
-                       { value: 'public', label: 'Herkese Açık', icon: '🌍' },
-                       { value: 'employers', label: 'Sadece İşverenler', icon: '👔' },
-                       { value: 'categories', label: 'Seçilen Kategoriler', icon: '📂' },
-                       { value: 'private', label: 'Gizli', icon: '🔒' }
-                     ].map((option) => (
-                       <TouchableOpacity
-                         key={option.value}
-                         style={[
-                           styles.visibilityOption,
-                           visibilitySettings.profileVisibility === option.value && styles.visibilityOptionSelected
-                         ]}
-                         onPress={() => handleVisibilityChange('profileVisibility', option.value)}
-                       >
-                         <Text style={styles.visibilityOptionIcon}>{option.icon}</Text>
-                         <Text style={[
-                           styles.visibilityOptionText,
-                           visibilitySettings.profileVisibility === option.value && styles.visibilityOptionTextSelected
-                         ]}>
-                           {option.label}
-                         </Text>
-                       </TouchableOpacity>
-                     ))}
-                   </View>
+                   {/* Profil Görünürlük Ayarları Modal */}
+          <Modal
+            visible={showVisibilityModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowVisibilityModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.visibilityModalContent}>
+                <Text style={styles.modalTitle}>Profil Görünürlük Ayarları</Text>
+                
+                <ScrollView 
+                  style={styles.visibilityFormScrollView}
+                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={styles.visibilityFormScrollContent}
+                >
+                  <View style={styles.visibilityFormContainer}>
+                    <Text style={styles.formLabel}>Profil Görünürlüğü</Text>
+                    <View style={styles.visibilitySelector}>
+                      {[
+                        { value: 'public', label: 'Herkese Açık', icon: '🌍' },
+                        { value: 'employers', label: 'Sadece İşverenler', icon: '👔' },
+                        { value: 'categories', label: 'Seçilen Kategoriler', icon: '📂' },
+                        { value: 'private', label: 'Gizli', icon: '🔒' }
+                      ].map((option) => (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.visibilityOption,
+                            visibilitySettings.profileVisibility === option.value && styles.visibilityOptionSelected
+                          ]}
+                          onPress={() => handleVisibilityChange('profileVisibility', option.value)}
+                        >
+                          <Text style={styles.visibilityOptionIcon}>{option.icon}</Text>
+                          <Text style={[
+                            styles.visibilityOptionText,
+                            visibilitySettings.profileVisibility === option.value && styles.visibilityOptionTextSelected
+                          ]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
 
-                   {visibilitySettings.profileVisibility === 'categories' && (
-                     <>
-                       <Text style={styles.formLabel}>Görünür Kategoriler</Text>
-                       <View style={styles.categoryVisibilitySelector}>
-                         {['Ev Temizliği', 'Bahçe Bakımı', 'Temizlik', 'Diğer'].map((category) => (
-                           <TouchableOpacity
-                             key={category}
-                             style={[
-                               styles.categoryVisibilityOption,
-                               visibilitySettings.visibleCategories.includes(category) && styles.categoryVisibilityOptionSelected
-                             ]}
-                             onPress={() => toggleCategoryVisibility(category)}
-                           >
-                             <Text style={[
-                               styles.categoryVisibilityText,
-                               visibilitySettings.visibleCategories.includes(category) && styles.categoryVisibilityTextSelected
-                             ]}>
-                               {category}
-                             </Text>
-                             {visibilitySettings.visibleCategories.includes(category) && (
-                               <Text style={styles.categoryVisibilityCheck}>✓</Text>
-                             )}
-                           </TouchableOpacity>
-                         ))}
-                       </View>
-                     </>
-                   )}
+                    {visibilitySettings.profileVisibility === 'categories' && (
+                      <>
+                        <Text style={styles.formLabel}>Görünür Kategoriler</Text>
+                        <View style={styles.categoryVisibilitySelector}>
+                          {['Ev Temizliği', 'Bahçe Bakımı', 'Temizlik', 'Diğer'].map((category) => (
+                            <TouchableOpacity
+                              key={category}
+                              style={[
+                                styles.categoryVisibilityOption,
+                                visibilitySettings.visibleCategories.includes(category) && styles.categoryVisibilityOptionSelected
+                              ]}
+                              onPress={() => toggleCategoryVisibility(category)}
+                            >
+                              <Text style={[
+                                styles.categoryVisibilityText,
+                                visibilitySettings.visibleCategories.includes(category) && styles.categoryVisibilityTextSelected
+                              ]}>
+                                {category}
+                              </Text>
+                              {visibilitySettings.visibleCategories.includes(category) && (
+                                <Text style={styles.categoryVisibilityCheck}>✓</Text>
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </>
+                    )}
 
-                   <Text style={styles.formLabel}>Detay Görünürlüğü</Text>
-                   <View style={styles.detailVisibilityContainer}>
-                     {[
-                       { key: 'showContactInfo', label: 'İletişim Bilgileri', icon: '📞' },
-                       { key: 'showLocation', label: 'Adres Bilgisi', icon: '📍' },
-                       { key: 'showEarnings', label: 'Kazanç Bilgileri', icon: '💰' },
-                       { key: 'showPortfolio', label: 'Portföy ve Referanslar', icon: '📁' }
-                     ].map((detail) => (
-                       <TouchableOpacity
-                         key={detail.key}
-                         style={[
-                           styles.detailVisibilityOption,
-                           visibilitySettings[detail.key as keyof typeof visibilitySettings] && styles.detailVisibilityOptionSelected
-                         ]}
-                         onPress={() => handleVisibilityChange(detail.key, !visibilitySettings[detail.key as keyof typeof visibilitySettings])}
-                       >
-                         <Text style={styles.detailVisibilityIcon}>{detail.icon}</Text>
-                         <Text style={styles.detailVisibilityLabel}>{detail.label}</Text>
-                         <View style={[
-                           styles.detailVisibilityToggle,
-                           visibilitySettings[detail.key as keyof typeof visibilitySettings] && styles.detailVisibilityToggleActive
-                         ]}>
-                           <Text style={styles.detailVisibilityToggleText}>
-                             {visibilitySettings[detail.key as keyof typeof visibilitySettings] ? 'ON' : 'OFF'}
-                           </Text>
-                         </View>
-                       </TouchableOpacity>
-                     ))}
-                   </View>
-                 </View>
-               </ScrollView>
-               
-               <View style={styles.modalButtons}>
-                 <TouchableOpacity 
-                   style={styles.modalCancelButton} 
-                   onPress={() => setShowVisibilityModal(false)}
-                 >
-                   <Text style={styles.modalCancelText}>İptal</Text>
-                 </TouchableOpacity>
-                 
-                 <TouchableOpacity 
-                   style={styles.modalSaveButton} 
-                   onPress={saveVisibilitySettings}
-                 >
-                   <Text style={styles.modalSaveText}>Kaydet</Text>
-                 </TouchableOpacity>
-               </View>
-             </View>
-           </View>
-         </Modal>
-     </SafeAreaView>
-   );
- }
+                    <Text style={styles.formLabel}>Detay Görünürlüğü</Text>
+                    <View style={styles.detailVisibilityContainer}>
+                      {[
+                        { key: 'showContactInfo', label: 'İletişim Bilgileri', icon: '📞' },
+                        { key: 'showLocation', label: 'Adres Bilgisi', icon: '📍' },
+                        { key: 'showEarnings', label: 'Kazanç Bilgileri', icon: '💰' },
+                        { key: 'showPortfolio', label: 'Portföy ve Referanslar', icon: '📁' }
+                      ].map((detail) => (
+                        <TouchableOpacity
+                          key={detail.key}
+                          style={[
+                            styles.detailVisibilityOption,
+                            visibilitySettings[detail.key as keyof typeof visibilitySettings] && styles.detailVisibilityOptionSelected
+                          ]}
+                          onPress={() => handleVisibilityChange(detail.key, !visibilitySettings[detail.key as keyof typeof visibilitySettings])}
+                        >
+                          <Text style={styles.detailVisibilityIcon}>{detail.icon}</Text>
+                          <Text style={styles.detailVisibilityLabel}>{detail.label}</Text>
+                          <View style={[
+                            styles.detailVisibilityToggle,
+                            visibilitySettings[detail.key as keyof typeof visibilitySettings] && styles.detailVisibilityToggleActive
+                          ]}>
+                            <Text style={styles.detailVisibilityToggleText}>
+                              {visibilitySettings[detail.key as keyof typeof visibilitySettings] ? 'ON' : 'OFF'}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </ScrollView>
+                
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity 
+                    style={styles.modalCancelButton} 
+                    onPress={() => setShowVisibilityModal(false)}
+                  >
+                    <Text style={styles.modalCancelText}>İptal</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.modalSaveButton} 
+                    onPress={saveVisibilitySettings}
+                  >
+                    <Text style={styles.modalSaveText}>Kaydet</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Profil Doğrulama Modal */}
+          <Modal
+            visible={showVerificationModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowVerificationModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.verificationModalContent}>
+                <Text style={styles.modalTitle}>🔒 Profil Doğrulama</Text>
+                
+                <ScrollView 
+                  style={styles.verificationFormScrollView}
+                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={styles.verificationFormScrollContent}
+                >
+                  <View style={styles.verificationFormContainer}>
+                    {/* Doğrulama Seviyesi Bilgisi */}
+                    <View style={styles.verificationLevelInfo}>
+                      <Text style={styles.verificationLevelInfoIcon}>
+                        {getVerificationLevelIcon(verificationData.verificationLevel)}
+                      </Text>
+                      <View>
+                        <Text style={styles.verificationLevelInfoTitle}>
+                          {verificationData.verificationLevel === 'bronze' ? 'Bronz Seviye' : 
+                           verificationData.verificationLevel === 'silver' ? 'Gümüş Seviye' : 'Altın Seviye'}
+                        </Text>
+                        <Text style={styles.verificationLevelInfoDescription}>
+                          {verificationData.verificationLevel === 'bronze' ? 
+                           'Temel doğrulama adımlarını tamamlayın' :
+                           verificationData.verificationLevel === 'silver' ? 
+                           'Orta seviye doğrulama için ek belgeler gerekli' :
+                           'Maksimum güven için tüm belgeleri doğrulayın'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Doğrulama Puanı */}
+                    <View style={styles.verificationScoreInfo}>
+                      <Text style={styles.verificationScoreLabel}>Doğrulama Puanınız</Text>
+                      <Text style={styles.verificationScoreValue}>
+                        {verificationData.verificationScore}/100
+                      </Text>
+                      <View style={styles.verificationScoreBar}>
+                        <View 
+                          style={[
+                            styles.verificationScoreFill, 
+                            { width: `${verificationData.verificationScore}%` }
+                          ]} 
+                        />
+                      </View>
+                    </View>
+
+                    {/* Doğrulama Adımları */}
+                    <Text style={styles.verificationStepsTitle}>Doğrulama Adımları</Text>
+                    <View style={styles.verificationStepsContainer}>
+                      {verificationData.documents.map((document) => (
+                        <View key={document.id} style={styles.verificationStepItem}>
+                          <View style={styles.verificationStepHeader}>
+                            <Text style={styles.verificationStepIcon}>
+                              {getDocumentStatusIcon(document.status)}
+                            </Text>
+                            <View style={styles.verificationStepInfo}>
+                              <Text style={styles.verificationStepName}>{document.name}</Text>
+                              <Text style={[
+                                styles.verificationStepStatus,
+                                { color: getDocumentStatusColor(document.status) }
+                              ]}>
+                                {document.status === 'verified' ? 'Doğrulandı' : 
+                                 document.status === 'pending' ? 'Beklemede' : 'Reddedildi'}
+                              </Text>
+                            </View>
+                          </View>
+                          
+                          <View style={styles.verificationStepActions}>
+                            {document.type === 'phone' && document.status !== 'verified' && (
+                              <TouchableOpacity 
+                                style={styles.verificationStepButton}
+                                onPress={handlePhoneVerification}
+                              >
+                                <Text style={styles.verificationStepButtonText}>SMS Doğrula</Text>
+                              </TouchableOpacity>
+                            )}
+                            
+                            {document.type !== 'phone' && document.status !== 'verified' && (
+                              <TouchableOpacity 
+                                style={styles.verificationStepButton}
+                                onPress={() => handleDocumentUpload(document.id)}
+                              >
+                                <Text style={styles.verificationStepButtonText}>Belge Yükle</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+
+                    {/* Doğrulama Faydaları */}
+                    <View style={styles.verificationBenefitsContainer}>
+                      <Text style={styles.verificationBenefitsTitle}>✅ Doğrulama Faydaları</Text>
+                      <View style={styles.verificationBenefitsList}>
+                        <Text style={styles.verificationBenefitItem}>• İşverenler tarafından daha güvenilir görünürsünüz</Text>
+                        <Text style={styles.verificationBenefitItem}>• Daha yüksek ücretli işler için öncelik kazanırsınız</Text>
+                        <Text style={styles.verificationBenefitItem}>• Profilinizde güven rozeti görünür</Text>
+                        <Text style={styles.verificationBenefitItem}>• Platform güvenlik standartlarına uygun olursunuz</Text>
+                      </View>
+                    </View>
+                  </View>
+                </ScrollView>
+                
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity 
+                    style={styles.modalCancelButton} 
+                    onPress={() => setShowVerificationModal(false)}
+                  >
+                    <Text style={styles.modalCancelText}>Kapat</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+                     </Modal>
+
+
+      </SafeAreaView>
+    );
+  }
 
 const styles = StyleSheet.create({
   container: {
@@ -2451,11 +2748,289 @@ const styles = StyleSheet.create({
      fontSize: 14,
      color: '#6B7280',
    },
-   categoryPerformanceDetailValue: {
-     fontSize: 14,
-     fontWeight: '600',
-     color: '#1F2937',
-   },
- });
+       categoryPerformanceDetailValue: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#1F2937',
+    },
+    // Profil doğrulama sistemi stilleri
+    verificationButton: {
+      backgroundColor: '#10B981',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+    },
+    verificationButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    verificationCard: {
+      backgroundColor: '#FFFFFF',
+      borderRadius: 16,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+      borderWidth: 1,
+      borderColor: '#F0F0F0',
+    },
+    verificationHeader: {
+      marginBottom: 20,
+    },
+    verificationLevelContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+      gap: 12,
+    },
+    verificationLevelIcon: {
+      fontSize: 32,
+    },
+    verificationLevelText: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#1F2937',
+      marginBottom: 4,
+    },
+    verificationScoreText: {
+      fontSize: 14,
+      color: '#6B7280',
+    },
+    verificationProgressContainer: {
+      marginBottom: 16,
+    },
+    verificationProgressBar: {
+      height: 8,
+      backgroundColor: '#F3F4F6',
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    verificationProgressFill: {
+      height: '100%',
+      backgroundColor: '#10B981',
+      borderRadius: 4,
+    },
+    verificationDocumentsContainer: {
+      gap: 12,
+    },
+    verificationDocumentItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      backgroundColor: '#F9FAFB',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+    },
+    documentInfo: {
+      flex: 1,
+    },
+    documentName: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#1F2937',
+      marginBottom: 4,
+    },
+    documentStatusContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    documentStatusIcon: {
+      fontSize: 16,
+    },
+    documentStatusText: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    uploadDocumentButton: {
+      backgroundColor: '#2563EB',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      marginLeft: 8,
+    },
+    uploadDocumentButtonText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    verifyPhoneButton: {
+      backgroundColor: '#10B981',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      marginLeft: 8,
+    },
+    verifyPhoneButtonText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    // Doğrulama modal stilleri
+    verificationModalContent: {
+      backgroundColor: '#FFFFFF',
+      borderRadius: 16,
+      padding: 24,
+      width: '90%',
+      maxWidth: 350,
+      maxHeight: '85%',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    verificationFormScrollView: {
+      maxHeight: 450,
+      marginBottom: 20,
+    },
+    verificationFormScrollContent: {
+      paddingBottom: 10,
+    },
+    verificationFormContainer: {
+      gap: 20,
+    },
+    verificationLevelInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      padding: 16,
+      backgroundColor: '#F0FDF4',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#D1FAE5',
+    },
+    verificationLevelInfoIcon: {
+      fontSize: 32,
+    },
+    verificationLevelInfoTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#065F46',
+      marginBottom: 4,
+    },
+    verificationLevelInfoDescription: {
+      fontSize: 14,
+      color: '#047857',
+      lineHeight: 20,
+    },
+    verificationScoreInfo: {
+      alignItems: 'center',
+      padding: 16,
+      backgroundColor: '#FEF3C7',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#FDE68A',
+    },
+    verificationScoreLabel: {
+      fontSize: 14,
+      color: '#92400E',
+      marginBottom: 8,
+    },
+    verificationScoreValue: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#D97706',
+      marginBottom: 12,
+    },
+    verificationScoreBar: {
+      width: '100%',
+      height: 8,
+      backgroundColor: '#FEF3C7',
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    verificationScoreFill: {
+      height: '100%',
+      backgroundColor: '#F59E0B',
+      borderRadius: 4,
+    },
+    verificationStepsTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#1F2937',
+      marginBottom: 12,
+    },
+    verificationStepsContainer: {
+      gap: 12,
+    },
+    verificationStepItem: {
+      padding: 16,
+      backgroundColor: '#F9FAFB',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+    },
+    verificationStepHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      gap: 12,
+    },
+    verificationStepIcon: {
+      fontSize: 24,
+    },
+    verificationStepInfo: {
+      flex: 1,
+    },
+    verificationStepName: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#1F2937',
+      marginBottom: 4,
+    },
+    verificationStepStatus: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    verificationStepActions: {
+      alignItems: 'flex-end',
+    },
+    verificationStepButton: {
+      backgroundColor: '#2563EB',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    verificationStepButtonText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    verificationBenefitsContainer: {
+      padding: 16,
+      backgroundColor: '#EFF6FF',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#DBEAFE',
+    },
+    verificationBenefitsTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#1E40AF',
+      marginBottom: 12,
+    },
+    verificationBenefitsList: {
+      gap: 8,
+    },
+         verificationBenefitItem: {
+       fontSize: 14,
+       color: '#1E40AF',
+       lineHeight: 20,
+     },
+
+   });
 
 
