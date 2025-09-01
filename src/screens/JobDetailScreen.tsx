@@ -71,7 +71,11 @@ const JobDetailScreen = ({ route, navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.content}>
           {/* Back Button */}
           <TouchableOpacity 
@@ -128,27 +132,28 @@ const JobDetailScreen = ({ route, navigation }: any) => {
               <Text style={styles.description}>{job.description}</Text>
             </View>
           )}
+
+          {/* Butonlar açıklama kısmının altında */}
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.messageButton}
+              onPress={handleMessageEmployer}
+            >
+              <Text style={styles.messageButtonText}>💬 Mesaj Gönder</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.applyButton, hasApplied && styles.appliedButton]}
+              onPress={handleApplyJob}
+              disabled={hasApplied}
+            >
+              <Text style={[styles.applyButtonText, hasApplied && styles.appliedButtonText]}>
+                {hasApplied ? 'Başvuruldu ✓' : 'Başvur'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.messageButton}
-          onPress={handleMessageEmployer}
-        >
-          <Text style={styles.messageButtonText}>💬 Mesaj Gönder</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.applyButton, hasApplied && styles.appliedButton]}
-          onPress={handleApplyJob}
-          disabled={hasApplied}
-        >
-          <Text style={[styles.applyButtonText, hasApplied && styles.appliedButtonText]}>
-            {hasApplied ? 'Başvuruldu ✓' : 'Başvur'}
-          </Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -157,9 +162,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    position: 'relative', // Footer için relative pozisyon
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40, // Footer artık ScrollView içinde, az boşluk yeterli
   },
   content: {
     padding: 20,
@@ -249,10 +258,14 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     padding: 20,
-    paddingBottom: 40,
+    paddingTop: 20, // Üstten boşluk
+    paddingBottom: 20, // Alttan boşluk
     borderTopWidth: 1,
     borderTopColor: '#E9ECEF',
     gap: 12,
+    backgroundColor: '#F8F9FA', // Açıklama ile uyumlu arka plan
+    borderRadius: 12, // Köşeleri yuvarlat
+    marginTop: 20, // Açıklama ile arasında boşluk
   },
   messageButton: {
     flex: 1,

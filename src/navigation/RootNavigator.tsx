@@ -21,6 +21,11 @@ import ProfileScreen from '../screens/ProfileScreen';
 
 // Optional detail screen placeholder
 import JobDetailScreen from '../screens/JobDetailScreen';
+import ChatScreen from '../screens/ChatScreen';
+import ProfileEditScreen from '../screens/ProfileEditScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import NotificationScreen from '../screens/NotificationScreen';
+import SearchScreen from '../screens/SearchScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -114,6 +119,11 @@ export default function RootNavigator(): JSX.Element {
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="JobDetail" component={JobDetailScreen} />
+        <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="Notifications" component={NotificationScreen} />
+        <Stack.Screen name="Search" component={SearchScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

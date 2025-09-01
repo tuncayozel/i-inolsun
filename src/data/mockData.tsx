@@ -41,6 +41,16 @@ export interface Conversation {
   jobTitle: string;
 }
 
+export interface Notification {
+  id: string;
+  type: 'job_application' | 'message' | 'system' | 'reminder';
+  title: string;
+  message: string;
+  timestamp: Date;
+  isRead: boolean;
+  data?: any;
+}
+
 export const mockCategories: Category[] = [
   { id: '1', name: 'Temizlik', icon: '🧽', color: '#3B82F6' },
   { id: '2', name: 'Taşıma', icon: '📦', color: '#10B981' },
@@ -153,6 +163,72 @@ export const mockConversations: Conversation[] = [
     unreadCount: 0,
     jobTitle: 'Mobilya Montajı',
   },
+  {
+    id: '4',
+    participantName: 'Burak Özkan',
+    participantId: 'emp4',
+    lastMessage: 'Ders programını ayarlayalım mı?',
+    lastMessageTime: new Date('2025-01-12T10:20:00'),
+    unreadCount: 1,
+    jobTitle: 'İngilizce Özel Ders',
+  },
+  {
+    id: '5',
+    participantName: 'Selin Ak',
+    participantId: 'emp5',
+    lastMessage: 'Taşıma için araç kiralaması yapıldı.',
+    lastMessageTime: new Date('2025-01-11T14:30:00'),
+    unreadCount: 0,
+    jobTitle: 'Ofis Taşıma',
+  },
+];
+
+export const mockNotifications: Notification[] = [
+  {
+    id: '1',
+    type: 'job_application',
+    title: 'İş Başvurusu Güncellendi',
+    message: 'Temizlik işi başvurunuz kabul edildi! İşveren ile iletişime geçin.',
+    timestamp: new Date('2025-01-14T10:30:00'),
+    isRead: false,
+    data: { jobId: 'job1', status: 'accepted' }
+  },
+  {
+    id: '2',
+    type: 'message',
+    title: 'Yeni Mesaj',
+    message: 'Ayşe Yılmaz size mesaj gönderdi: "Yarın saat kaçta gelebilirsiniz?"',
+    timestamp: new Date('2025-01-14T09:15:00'),
+    isRead: false,
+    data: { conversationId: 'conv1', senderName: 'Ayşe Yılmaz' }
+  },
+  {
+    id: '3',
+    type: 'system',
+    title: 'Sistem Güncellemesi',
+    message: 'Uygulama yeni özellikler ile güncellendi. Detayları görmek için tıklayın.',
+    timestamp: new Date('2025-01-14T08:00:00'),
+    isRead: true,
+    data: { updateVersion: '2.1.0' }
+  },
+  {
+    id: '4',
+    type: 'reminder',
+    title: 'İş Hatırlatması',
+    message: 'Yarın saat 14:00\'da temizlik işiniz var. Hazırlıklarınızı yapın.',
+    timestamp: new Date('2025-01-13T20:00:00'),
+    isRead: true,
+    data: { jobId: 'job1', reminderTime: '14:00' }
+  },
+  {
+    id: '5',
+    type: 'job_application',
+    title: 'Yeni İş Önerisi',
+    message: 'Size uygun 3 yeni iş önerisi var. Hemen inceleyin!',
+    timestamp: new Date('2025-01-13T18:30:00'),
+    isRead: false,
+    data: { jobCount: 3 }
+  }
 ];
 
 export const mockUserProfile = {

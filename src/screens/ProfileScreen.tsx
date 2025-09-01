@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatPrice } from '../data/mockData';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen({ navigation }: any) {
   const [user, setUser] = useState({
@@ -24,9 +25,11 @@ export default function ProfileScreen({ navigation }: any) {
     phone: '0532 123 45 67'
   });
 
-  useEffect(() => {
-    loadUserData();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserData();
+    }, [])
+  );
 
   const loadUserData = async () => {
     try {
@@ -37,7 +40,9 @@ export default function ProfileScreen({ navigation }: any) {
           ...prev,
           name: parsedUser.name,
           email: parsedUser.email,
-          phone: parsedUser.phone
+          phone: parsedUser.phone,
+          location: parsedUser.location,
+          bio: parsedUser.bio
         }));
       }
     } catch (error) {
@@ -46,11 +51,11 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const handleEditProfile = () => {
-    Alert.alert('Düzenle', 'Profil düzenleme özelliği geliştirilme aşamasında...');
+    navigation.navigate('ProfileEdit');
   };
 
   const handleSettings = () => {
-    Alert.alert('Ayarlar', 'Ayarlar özelliği geliştirilme aşamasında...');
+    navigation.navigate('Settings');
   };
 
   const handleLogout = async () => {

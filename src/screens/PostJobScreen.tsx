@@ -10,6 +10,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Modal,
 } from 'react-native';
 import { mockCategories } from '../data/mockData';
 
@@ -22,8 +24,27 @@ export default function PostJobScreen({ navigation }: any) {
     price: '',
     date: '',
     time: '',
+    photos: [] as string[],
   });
   const [loading, setLoading] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [searchCategory, setSearchCategory] = useState('');
+
+  const addPhoto = () => {
+    // Mock fotoğraf ekleme - gerçek projede kamera/galeri entegrasyonu olacak
+    const mockPhoto = `https://picsum.photos/300/200?random=${Date.now()}`;
+    setFormData(prev => ({
+      ...prev,
+      photos: [...prev.photos, mockPhoto]
+    }));
+  };
+
+  const removePhoto = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      photos: prev.photos.filter((_, i) => i !== index)
+    }));
+  };
 
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;
@@ -54,12 +75,33 @@ export default function PostJobScreen({ navigation }: any) {
       }
     }
     
+    // Fiyat formatı: 1000 -> 1.000
+    if (field === 'price') {
+      const cleanValue = value.replace(/[^0-9]/g, '');
+      if (cleanValue === '') {
+        formattedValue = '';
+      } else {
+        const number = parseInt(cleanValue);
+        formattedValue = number.toLocaleString('tr-TR');
+      }
+    }
+    
     setFormData(prev => ({ ...prev, [field]: formattedValue }));
   };
 
   const handleCategorySelect = (categoryName: string) => {
     setFormData(prev => ({ ...prev, category: categoryName }));
   };
+
+  const selectCategory = (category: string) => {
+    setFormData(prev => ({ ...prev, category }));
+    setShowCategoryModal(false);
+    setSearchCategory('');
+  };
+
+  const filteredCategories = mockCategories.filter(cat =>
+    cat.name.toLowerCase().includes(searchCategory.toLowerCase())
+  );
 
   const handleSubmit = () => {
     const { title, description, category, location, price, date, time } = formData;
@@ -69,7 +111,9 @@ export default function PostJobScreen({ navigation }: any) {
       return;
     }
 
-    if (isNaN(Number(price))) {
+    // Fiyat validasyonu - nokta ve virgülleri temizle
+    const cleanPrice = price.replace(/[.,]/g, '');
+    if (isNaN(Number(cleanPrice))) {
       Alert.alert('Hata', 'Fiyat sayısal olmalı');
       return;
     }
@@ -109,22 +153,15 @@ export default function PostJobScreen({ navigation }: any) {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Kategori</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
-                {mockCategories.map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={[
-                      styles.categoryOption,
-                      { backgroundColor: category.color },
-                      formData.category === category.name && styles.categoryOptionSelected
-                    ]}
-                    onPress={() => handleCategorySelect(category.name)}
-                  >
-                    <Text style={styles.categoryOptionIcon}>{category.icon}</Text>
-                    <Text style={styles.categoryOptionText}>{category.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <TouchableOpacity
+                style={[styles.input, styles.categoryInput]}
+                onPress={() => setShowCategoryModal(true)}
+              >
+                <Text style={formData.category ? styles.categoryText : styles.placeholderText}>
+                  {formData.category || 'Kategori seçin'}
+                </Text>
+                <Text style={styles.categoryArrow}>▼</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.inputGroup}>
@@ -138,6 +175,32 @@ export default function PostJobScreen({ navigation }: any) {
                 numberOfLines={4}
                 textAlignVertical="top"
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Fotoğraflar (Opsiyonel)</Text>
+              <View style={styles.photosContainer}>
+                {formData.photos.map((photo, index) => (
+                  <View key={index} style={styles.photoItem}>
+                    <Image source={{ uri: photo }} style={styles.photo} />
+                    <TouchableOpacity
+                      style={styles.removePhotoButton}
+                      onPress={() => removePhoto(index)}
+                    >
+                      <Text style={styles.removePhotoText}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {formData.photos.length < 5 && (
+                  <TouchableOpacity style={styles.addPhotoButton} onPress={addPhoto}>
+                    <Text style={styles.addPhotoText}>📷</Text>
+                    <Text style={styles.addPhotoLabel}>Fotoğraf Ekle</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text style={styles.photoHint}>
+                Maksimum 5 fotoğraf ekleyebilirsiniz
+              </Text>
             </View>
 
             <View style={styles.inputGroup}>
@@ -185,6 +248,7 @@ export default function PostJobScreen({ navigation }: any) {
                 onChangeText={(value) => handleInputChange('price', value)}
                 keyboardType="numeric"
               />
+              <Text style={styles.inputHint}>Örnek: 1.000, 2.500, 10.000</Text>
             </View>
 
             <TouchableOpacity 
@@ -198,6 +262,48 @@ export default function PostJobScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {/* Category Selection Modal */}
+        <Modal
+          visible={showCategoryModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowCategoryModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Kategori Seçin</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowCategoryModal(false)}
+                >
+                  <Text style={styles.closeButtonText}>×</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Kategori ara..."
+                value={searchCategory}
+                onChangeText={setSearchCategory}
+              />
+              
+              <ScrollView style={styles.categoriesList}>
+                {filteredCategories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={styles.categoryItem}
+                    onPress={() => selectCategory(category.name)}
+                  >
+                    <Text style={styles.categoryIcon}>{category.icon}</Text>
+                    <Text style={styles.categoryName}>{category.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -326,6 +432,152 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  // Category Input Styles
+  categoryInput: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  categoryText: {
+    color: '#1F2937',
+    fontSize: 16,
+  },
+  placeholderText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+  },
+  categoryArrow: {
+    color: '#6B7280',
+    fontSize: 16,
+  },
+  // Photo Styles
+  photosContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 8,
+  },
+  photoItem: {
+    position: 'relative',
+  },
+  photo: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removePhotoText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  addPhotoButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  addPhotoText: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  addPhotoLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  photoHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#6B7280',
+    fontWeight: 'bold',
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    margin: 20,
+    fontSize: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  categoriesList: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  categoryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  categoryIcon: {
+    fontSize: 24,
+    marginRight: 16,
+  },
+  categoryName: {
+    fontSize: 16,
+    color: '#1F2937',
+    fontWeight: '500',
   },
 });
 

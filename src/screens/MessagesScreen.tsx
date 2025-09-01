@@ -12,8 +12,7 @@ import { mockConversations, Conversation } from '../data/mockData';
 
 export default function MessagesScreen({ navigation }: any) {
   const handleConversationPress = (conversation: Conversation) => {
-    // Mesajlaşma detayı için ayrı ekran gerekli - şimdilik alert
-    console.log('Conversation selected:', conversation.id);
+    navigation.navigate('Chat', { conversationId: conversation.id });
   };
 
   const formatTime = (date: Date) => {
